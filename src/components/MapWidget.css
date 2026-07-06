@@ -1,0 +1,70 @@
+.map-widget-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.map-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.map-title {
+  font-size: 16px;
+  font-family: var(--font-title);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.map-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.map-element {
+  height: 350px;
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--steel-border);
+  overflow: hidden;
+  z-index: 10;
+}
+
+/* Override standard leaflet tooltip style to match dark mode */
+.leaflet-tooltip {
+  background: var(--bg-tertiary) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--steel-border) !important;
+  border-radius: 6px !important;
+  font-family: var(--font-title) !important;
+  font-weight: 600 !important;
+  font-size: 12px !important;
+}
+
+.leaflet-popup-content-wrapper {
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--steel-border) !important;
+  border-radius: 10px !important;
+}
+
+.leaflet-popup-tip {
+  background: var(--bg-secondary) !important;
+}
+
+.leaflet-control-zoom {
+  border: 1px solid var(--steel-border) !important;
+}
+
+.leaflet-control-zoom-in, .leaflet-control-zoom-out {
+  background: var(--bg-tertiary) !important;
+  color: var(--text-primary) !important;
+  border-bottom-color: var(--steel-border) !important;
+}
+
+.leaflet-control-zoom-in:hover, .leaflet-control-zoom-out:hover {
+  background: var(--accent-soft) !important;
+  color: var(--accent) !important;
+}

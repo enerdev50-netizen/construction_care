@@ -1,0 +1,214 @@
+/* ==========================================================================
+   DATEPICKER COMPONENT STYLE
+   ========================================================================== */
+
+.custom-datepicker-container {
+  position: relative;
+  width: 100%;
+}
+
+.custom-datepicker-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.custom-datepicker-input {
+  width: 100%;
+  padding: 10px 14px;
+  padding-right: 40px; /* Space for the calendar icon */
+  font-size: 0.95rem;
+  border-radius: 10px;
+  border: 1px solid var(--steel-border);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.custom-datepicker-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.custom-datepicker-icon {
+  position: absolute;
+  right: 12px;
+  color: var(--steel);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+}
+
+.custom-datepicker-clear-btn {
+  position: absolute;
+  right: 36px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 4px;
+  border-radius: 50%;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.custom-datepicker-clear-btn:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+/* Calendar Popover */
+.custom-datepicker-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 999;
+  width: 310px;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid var(--steel-border);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(var(--glass-blur, 16px));
+  -webkit-backdrop-filter: blur(var(--glass-blur, 16px));
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  animation: datepickerFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes datepickerFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.custom-datepicker-popover.open-upward {
+  top: auto;
+  bottom: calc(100% + 8px);
+  animation: datepickerFadeInUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.custom-datepicker-popover.open-leftward {
+  left: auto;
+  right: 0;
+}
+
+@keyframes datepickerFadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Calendar Header */
+.custom-datepicker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.custom-datepicker-month-year {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  text-transform: capitalize;
+}
+
+.custom-datepicker-nav-btn {
+  background: none;
+  border: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.custom-datepicker-nav-btn:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+/* Week Days Header */
+.custom-datepicker-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.custom-datepicker-weekday {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  padding: 4px 0;
+}
+
+/* Days Grid */
+.custom-datepicker-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.custom-datepicker-day {
+  background: none;
+  border: none;
+  height: 34px;
+  width: 34px;
+  margin: 0 auto;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.custom-datepicker-day:hover:not(.empty):not(.selected) {
+  background: var(--bg-secondary);
+}
+
+.custom-datepicker-day.empty {
+  cursor: default;
+  color: var(--text-muted);
+  opacity: 0.35;
+}
+
+.custom-datepicker-day.today:not(.selected) {
+  font-weight: bold;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+}
+
+.custom-datepicker-day.selected {
+  background: var(--accent);
+  color: var(--on-primary);
+  font-weight: 600;
+  box-shadow: 0 4px 10px rgba(249, 115, 22, 0.35);
+}
+
+/* Dark Mode support if parent overrides colors */
+body.dark-mode .custom-datepicker-popover {
+  background: rgba(15, 23, 42, 0.85);
+  border-color: rgba(255, 255, 255, 0.1);
+}

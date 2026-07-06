@@ -1,0 +1,69 @@
+.worker-portal-layout {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background-color: var(--bg-primary);
+}
+
+.worker-portal-scrollable {
+  flex: 1;
+  padding: 30px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.worker-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--steel-border);
+  padding-bottom: 20px;
+}
+
+.worker-header h2 {
+  font-size: 24px;
+  font-family: var(--font-title);
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.worker-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 992px) {
+  .worker-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.upload-box {
+  border: 2px dashed var(--steel-border);
+  border-radius: 12px;
+  padding: 30px;
+  text-align: center;
+  cursor: pointer;
+  background: rgba(18, 19, 26, 0.4);
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.upload-box:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+  background: var(--accent-soft);
+}
+
+.upload-preview {
+  width: 100%;
+  max-height: 180px;
+  object-fit: cover;
+  border-radius: 8px;
+}

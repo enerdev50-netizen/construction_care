@@ -1,0 +1,67 @@
+.stat-card {
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 110px;
+}
+
+.stat-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stat-label {
+  font-size: 13px;
+  font-family: var(--font-title);
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stat-value {
+  font-size: 28px;
+  font-family: var(--font-title);
+  color: var(--text-primary);
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.stat-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.stat-icon-wrapper {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--steel-border);
+  color: var(--text-primary);
+}
+
+/* Stat card variants */
+.stat-card.accent .stat-icon-wrapper {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.stat-card.success .stat-icon-wrapper {
+  background: var(--status-success-soft);
+  color: var(--status-success);
+}
+
+.stat-card.info .stat-icon-wrapper {
+  background: var(--status-active-soft);
+  color: var(--status-active);
+}
+
+.stat-card.warning .stat-icon-wrapper {
+  background: var(--status-pending-soft);
+  color: var(--status-pending);
+}

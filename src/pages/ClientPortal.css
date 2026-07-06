@@ -1,0 +1,114 @@
+.client-portal-layout {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background-color: var(--bg-primary);
+}
+
+.client-portal-scrollable {
+  flex: 1;
+  padding: 30px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Back button */
+.client-portal-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--steel-border);
+  padding-bottom: 20px;
+}
+
+.client-portal-header h2 {
+  font-size: 24px;
+  font-family: var(--font-title);
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+/* Sections Grid */
+.client-sections-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 992px) {
+  .client-sections-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Client Portal cards */
+.client-card {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.client-card h3 {
+  font-size: 16px;
+  font-family: var(--font-title);
+  border-bottom: 1px solid rgba(75, 82, 109, 0.1);
+  padding-bottom: 10px;
+}
+
+/* Milestone lists */
+.milestones-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.milestone-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-radius: 10px;
+  background: rgba(18, 19, 26, 0.3);
+  border: 1px solid var(--steel-border);
+}
+
+.milestone-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.milestone-name {
+  font-family: var(--font-title);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* Signature modal overlay */
+.signature-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(10, 11, 16, 0.85);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+}
+
+.signature-modal-content {
+  width: 100%;
+  max-width: 500px;
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
