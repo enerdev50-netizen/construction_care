@@ -11,6 +11,7 @@ import {
   MapPin,
   Plus,
   Download,
+  Trash2,
 } from 'lucide-react';
 import api from '../api';
 import Header from '../components/Header';
@@ -35,6 +36,10 @@ const WorkerPortal: React.FC<WorkerPortalProps> = ({ projectId, onBack }) => {
 
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('tasks');
+
+  // Gestion des tâches (Chef de chantier)
+  const [newTaskName, setNewTaskName] = useState('');
+  const [addingTask, setAddingTask] = useState(false);
 
   useEffect(() => {
     fetchDetails();
@@ -71,6 +76,32 @@ const WorkerPortal: React.FC<WorkerPortalProps> = ({ projectId, onBack }) => {
       fetchDetails();
     } catch (err) {
       console.error('Erreur lors du changement de statut de tâche', err);
+    }
+  };
+
+  // Ajouter une nouvelle tâche / jalon au chantier
+  const handleAddTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTaskName.trim()) return;
+    setAddingTask(true);
+    try {
+      await api.post(`/projects/${projectId}/tasks`, { name: newTaskName.trim() });
+      setNewTaskName('');
+      fetchDetails();
+    } catch (err) {
+      console.error('Erreur lors de la création de la tâche', err);
+    } finally {
+      setAddingTask(false);
+    }
+  };
+
+  // Supprimer une tâche
+  const handleDeleteTask = async (taskId: string) => {
+    try {
+      await api.delete(`/projects/${projectId}/tasks/${taskId}`);
+      fetchDetails();
+    } catch (err) {
+      console.error('Erreur lors de la suppression de la tâche', err);
     }
   };
 
@@ -203,6 +234,26 @@ const WorkerPortal: React.FC<WorkerPortalProps> = ({ projectId, onBack }) => {
                   Appuyez sur la case à cocher pour actualiser le statut de la phase de travaux :
                 </p>
 
+                {/* Ajouter une nouvelle tâche / jalon */}
+                <form onSubmit={handleAddTask} style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Nouvelle tâche (ex: Coulage dalle RDC)"
+                    value={newTaskName}
+                    onChange={(e) => setNewTaskName(e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    disabled={addingTask || !newTaskName.trim()}
+                  >
+                    <Plus size={16} /> {addingTask ? '...' : 'Ajouter'}
+                  </button>
+                </form>
+
                 <div className="tasks-list">
                   {project.tasks.map((task: any) => {
                     const isCompleted = task.status === 'TERMINE';
@@ -228,9 +279,19 @@ const WorkerPortal: React.FC<WorkerPortalProps> = ({ projectId, onBack }) => {
                           </span>
                         </div>
 
-                        <span className={`badge ${isCompleted ? 'badge-success' : isInProgress ? 'badge-pending' : 'badge-danger'}`}>
-                          {task.status === 'TERMINE' ? 'Terminé' : task.status === 'EN_COURS' ? 'En Cours' : 'À Faire'}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span className={`badge ${isCompleted ? 'badge-success' : isInProgress ? 'badge-pending' : 'badge-danger'}`}>
+                            {task.status === 'TERMINE' ? 'Terminé' : task.status === 'EN_COURS' ? 'En Cours' : 'À Faire'}
+                          </span>
+                          <button
+                            type="button"
+                            title="Supprimer la tâche"
+                            onClick={() => handleDeleteTask(task.id)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--status-danger)', display: 'flex', alignItems: 'center', padding: '4px' }}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </div>
                     );
                   })}

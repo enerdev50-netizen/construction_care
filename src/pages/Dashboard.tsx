@@ -1091,6 +1091,7 @@ const Dashboard: React.FC = () => {
         longitude: projLng || null,
         startDate: projStart,
         endDate: projEnd,
+        budget: projBudget || null,
         clientIds: finalClientIds,
       });
 
@@ -1151,6 +1152,7 @@ const Dashboard: React.FC = () => {
       if (selectedFields.includes('startDate')) payload.startDate = projStart;
       if (selectedFields.includes('endDate')) payload.endDate = projEnd;
       if (selectedFields.includes('status')) payload.status = projStatus;
+      if (selectedFields.includes('budget')) payload.budget = projBudget || null;
 
       await api.put(`/projects/${editingProject.id}`, payload);
       setShowEditProjModal(false);
@@ -2258,6 +2260,10 @@ const Dashboard: React.FC = () => {
 
               {/* ONGLET SUPER_ADMIN : LISTE DES ENTREPRISES */}
               {activeTab === 'superadmin-companies' && user.role === 'SUPER_ADMIN' && (
+                <>
+                {/* Les actions de ce tableau (changement de forfait) se font hors modale :
+                    l'erreur doit donc être affichée ici pour rester visible. */}
+                {errorMsg && <div className="login-error" style={{ marginBottom: '16px' }}>{errorMsg}</div>}
                 <DataTable
                   title="Entreprises enregistrées"
                   subtitle="Liste de toutes les entreprises utilisant la plateforme"
@@ -2297,22 +2303,32 @@ const Dashboard: React.FC = () => {
                           style={{ padding: '4px 8px', fontSize: '12px' }}
                           value={company.subscriptionPlan}
                           onChange={async (e) => {
+                            setErrorMsg('');
                             try {
                               await api.put(`/superadmin/companies/${company.id}/plan`, { plan: e.target.value });
                               loadDashboardData();
-                            } catch (err) {
-                              console.error('Erreur changement plan', err);
+                            } catch (err: any) {
+                              setErrorMsg(err.response?.data?.error || 'Erreur lors du changement de forfait.');
+                              // Recharge les données pour que le sélecteur revienne au forfait réellement enregistré
+                              loadDashboardData();
                             }
                           }}
                         >
-                          <option value="FREE">FREE</option>
-                          <option value="STANDARD">STANDARD</option>
-                          <option value="PREMIUM">PREMIUM</option>
+                          {/* Forfaits réellement configurés, forfaits personnalisés inclus */}
+                          {superadminPlans.map((plan) => (
+                            <option key={plan.planName} value={plan.planName}>{plan.planName}</option>
+                          ))}
+                          {/* Repli si le forfait courant a été supprimé entre-temps : évite que le
+                              sélecteur se positionne silencieusement sur une autre valeur */}
+                          {!superadminPlans.some((plan) => plan.planName === company.subscriptionPlan) && (
+                            <option value={company.subscriptionPlan}>{company.subscriptionPlan}</option>
+                          )}
                         </select>
                       </td>
                     </tr>
                   )}
                 />
+                </>
               )}
 
               {/* ONGLET SUPER_ADMIN : GESTION DES PLANS */}
@@ -3498,6 +3514,11 @@ const Dashboard: React.FC = () => {
                 </div>
               </div>
 
+              <div className="form-group">
+                <label>Budget prévisionnel (FCFA) — optionnel</label>
+                <input type="number" step="any" min="0" className="form-input" placeholder="Ex: 5000000" value={projBudget} onChange={(e) => setProjBudget(e.target.value)} />
+              </div>
+
               {/* Créer ou Assigner un Client */}
               <div className="form-group" style={{ marginTop: '12px', marginBottom: '8px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: '500' }}>
@@ -3614,6 +3635,7 @@ const Dashboard: React.FC = () => {
                         { key: 'address', label: 'Adresse / Lieu' },
                         { key: 'startDate', label: 'Date de début' },
                         { key: 'endDate', label: 'Date de fin' },
+                        { key: 'budget', label: 'Budget (FCFA)' },
                         { key: 'status', label: 'Statut' },
                         { key: 'latitude', label: 'Latitude' },
                         { key: 'longitude', label: 'Longitude' }
@@ -3663,6 +3685,12 @@ const Dashboard: React.FC = () => {
                       </div>
                     )}
                   </div>
+                  {selectedFields.includes('budget') && (
+                    <div className="form-group">
+                      <label>Budget prévisionnel (FCFA)</label>
+                      <input type="number" step="any" min="0" className="form-input" placeholder="Ex: 5000000" value={projBudget} onChange={(e) => setProjBudget(e.target.value)} />
+                    </div>
+                  )}
                   {selectedFields.includes('status') && (
                     <div className="form-group">
                       <label>Statut</label>

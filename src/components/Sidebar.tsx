@@ -15,6 +15,7 @@ import {
   BarChart2,
   Building2,
 } from 'lucide-react';
+import api from '../api';
 import './Sidebar.css';
 
 interface SidebarProps {
@@ -31,7 +32,13 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, company: pro
   const localCompany = companyStr ? JSON.parse(companyStr) : null;
   const company = propCompany || localCompany;
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Invalide le refresh token côté serveur (cookie httpOnly)
+    try {
+      await api.post('/auth/logout');
+    } catch {
+      // on déconnecte localement même si l'appel échoue
+    }
     localStorage.removeItem('construction_token');
     localStorage.removeItem('construction_user');
     localStorage.removeItem('construction_company');
