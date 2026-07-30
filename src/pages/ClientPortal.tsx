@@ -42,10 +42,64 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ projectId, onBack }) => {
   const [paymentError, setPaymentError] = useState('');
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
 
+  // État Paiement Mobile Money (FedaPay) — mode par défaut de la fenêtre de versement.
+  // Aucune redirection : un push USSD est envoyé sur le téléphone, et c'est le webhook
+  // FedaPay (côté serveur) qui confirme le paiement. Ici on ne fait que du polling d'affichage.
+  const [paymentMode, setPaymentMode] = useState<'mobile_money' | 'manual'>('mobile_money');
+  const [mmProvider, setMmProvider] = useState<'togocel' | 'moov_tg'>('togocel');
+  const [mmPhone, setMmPhone] = useState('');
+  const [mmSubmitting, setMmSubmitting] = useState(false);
+  const [mmError, setMmError] = useState('');
+  const [mmTransaction, setMmTransaction] = useState<{ id: string; status: string } | null>(null);
+  const [mmPolling, setMmPolling] = useState(false);
+
   useEffect(() => {
     fetchProjectDetails();
     fetchCompanyPlan();
   }, [projectId]);
+
+  // Polling du statut d'une transaction Mobile Money en attente. Le webhook FedaPay
+  // (côté serveur) est la seule source de vérité ; ce polling ne fait qu'afficher
+  // l'état déjà enregistré en base, jamais le décider.
+  useEffect(() => {
+    if (!mmPolling || !mmTransaction?.id) return;
+
+    const POLL_INTERVAL_MS = 4000;
+    const MAX_ATTEMPTS = 30; // ~2 minutes
+    let attempts = 0;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+
+    const poll = async () => {
+      if (cancelled) return;
+      attempts++;
+      try {
+        const res = await api.get(`/payments/mobile-money/${mmTransaction.id}`);
+        if (cancelled) return;
+        setMmTransaction((prev) => (prev ? { ...prev, status: res.data.status } : prev));
+
+        if (res.data.status === 'APPROVED') {
+          setMmPolling(false);
+          fetchProjectDetails();
+          return;
+        }
+        if (['DECLINED', 'CANCELED', 'EXPIRED', 'FAILED'].includes(res.data.status)) {
+          setMmPolling(false);
+          return;
+        }
+      } catch {
+        // Erreur réseau ponctuelle : on retente au prochain intervalle plutôt que d'abandonner.
+      }
+      if (!cancelled && attempts < MAX_ATTEMPTS) {
+        timer = setTimeout(poll, POLL_INTERVAL_MS);
+      } else if (!cancelled) {
+        setMmPolling(false);
+      }
+    };
+
+    timer = setTimeout(poll, POLL_INTERVAL_MS);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [mmPolling, mmTransaction?.id]);
 
   const fetchCompanyPlan = () => {
     const compStr = localStorage.getItem('construction_company');
@@ -99,9 +153,61 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ projectId, onBack }) => {
     setPaymentModalItem(item);
     setPaymentAmount(remaining.toString());
     setPaymentError('');
+    setPaymentMode('mobile_money');
+    setMmProvider('togocel');
+    setMmPhone('');
+    setMmError('');
+    setMmTransaction(null);
+    setMmPolling(false);
   };
 
-  // Soumettre la déclaration de paiement
+  // Fermer le modal — arrête aussi le polling en cours s'il y en a un
+  const closePaymentModal = () => {
+    setPaymentModalItem(null);
+    setMmPolling(false);
+    setMmTransaction(null);
+  };
+
+  // Initier un paiement Mobile Money (FedaPay) : push USSD, aucune redirection.
+  // Le webhook côté serveur confirmera le paiement ; on se contente ici de suivre
+  // le statut par polling (voir l'effet ci-dessus).
+  const handleMobileMoneySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMmError('');
+    const versement = parseFloat(paymentAmount);
+    const remaining = paymentModalItem.amount - (paymentModalItem.paidAmount || 0);
+
+    if (isNaN(versement) || versement <= 0) {
+      setMmError('Veuillez entrer un montant valide.');
+      return;
+    }
+    if (versement > remaining) {
+      setMmError(`Le montant ne peut pas dépasser le reste à payer (${remaining.toLocaleString()} FCFA).`);
+      return;
+    }
+    if (!mmPhone || mmPhone.replace(/\D/g, '').length < 8) {
+      setMmError('Veuillez entrer un numéro de téléphone valide.');
+      return;
+    }
+
+    setMmSubmitting(true);
+    try {
+      const res = await api.post('/payments/mobile-money', {
+        documentId: paymentModalItem.id,
+        amount: Math.round(versement),
+        phoneNumber: mmPhone,
+        provider: mmProvider,
+      });
+      setMmTransaction({ id: res.data.transaction.id, status: res.data.transaction.status });
+      setMmPolling(true);
+    } catch (err: any) {
+      setMmError(err.response?.data?.error || err.message || "Erreur lors de l'initiation du paiement.");
+    } finally {
+      setMmSubmitting(false);
+    }
+  };
+
+  // Soumettre la déclaration de paiement (mode manuel, en attente de validation gérant)
   const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setPaymentError('');
@@ -719,13 +825,13 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ projectId, onBack }) => {
         </div>
 
       )}\n
-      {/* Modal : Déclarer un Paiement Partiel */}
+      {/* Modal : Payer / Déclarer un Versement */}
       {paymentModalItem && (
         <div className="modal-overlay" style={{ zIndex: 9000 }}>
           <div className="modal-content glass-panel" style={{ maxWidth: '480px', width: '100%' }}>
             <div className="modal-header">
-              <span className="modal-title">💳 Déclarer un Versement</span>
-              <button className="modal-close-btn" onClick={() => setPaymentModalItem(null)}>
+              <span className="modal-title">💳 Régler la facture</span>
+              <button className="modal-close-btn" onClick={closePaymentModal}>
                 <X size={18} />
               </button>
             </div>
@@ -753,79 +859,178 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ projectId, onBack }) => {
               </div>
             </div>
 
-            {paymentError && (
-              <div className="login-error" style={{ marginBottom: '16px' }}>{paymentError}</div>
-            )}
+            {/* Choix du mode de paiement — désactivé pendant qu'un paiement Mobile Money est en cours */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+              <button
+                type="button"
+                className={`btn ${paymentMode === 'mobile_money' ? 'btn-cta' : 'btn-secondary'}`}
+                style={{ flex: 1 }}
+                disabled={!!mmTransaction}
+                onClick={() => { setPaymentMode('mobile_money'); setPaymentError(''); }}
+              >
+                📱 Mobile Money
+              </button>
+              <button
+                type="button"
+                className={`btn ${paymentMode === 'manual' ? 'btn-cta' : 'btn-secondary'}`}
+                style={{ flex: 1 }}
+                disabled={!!mmTransaction}
+                onClick={() => { setPaymentMode('manual'); setMmError(''); }}
+              >
+                ✍️ Déclaration manuelle
+              </button>
+            </div>
 
-            <form onSubmit={handlePaymentSubmit} className="login-form">
-              <div className="form-group">
-                <label style={{ fontWeight: '700' }}>Montant de votre versement (FCFA)</label>
-                <input
-                  type="number"
-                  step="1"
-                  min="1"
-                  max={Math.max(0, paymentModalItem.amount - (paymentModalItem.paidAmount || 0))}
-                  className="form-input"
-                  placeholder="Ex: 75000"
-                  value={paymentAmount}
-                  onChange={(e) => {
-                    setPaymentAmount(e.target.value);
-                    setPaymentError('');
-                  }}
-                  required
-                  autoFocus
-                />
-                <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '6px' }}>
-                  Vous pouvez payer partiellement ou intégralement. Le gérant validera votre versement.
-                </p>
-              </div>
-
-              {/* Raccourcis rapides */}
-              {(() => {
-                const remaining = Math.max(0, paymentModalItem.amount - (paymentModalItem.paidAmount || 0));
-                const shortcuts = [
-                  { label: '25%', value: Math.round(remaining * 0.25) },
-                  { label: '50%', value: Math.round(remaining * 0.5) },
-                  { label: '75%', value: Math.round(remaining * 0.75) },
-                  { label: 'Total', value: remaining },
-                ];
-                return (
-                  <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
-                    {shortcuts.map((s) => (
-                      <button
-                        key={s.label}
-                        type="button"
-                        className="btn btn-secondary"
-                        style={{ flex: '1', minWidth: '60px', padding: '6px 8px', fontSize: '12px', fontWeight: '700' }}
-                        onClick={() => { setPaymentAmount(s.value.toString()); setPaymentError(''); }}
-                      >
-                        {s.label}<br/>
-                        <span style={{ fontSize: '10px', fontWeight: '400', opacity: 0.7 }}>{s.value.toLocaleString()} F</span>
-                      </button>
-                    ))}
+            {paymentMode === 'mobile_money' && mmTransaction ? (
+              // Suivi d'un paiement Mobile Money déjà initié : lecture seule, le webhook
+              // serveur seul décide du statut réel — cet écran ne fait qu'afficher.
+              <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                {mmTransaction.status === 'PENDING' && (
+                  <>
+                    <div style={{ fontSize: '15px', fontWeight: '800', marginBottom: '10px' }}>
+                      📲 Validez la demande sur votre téléphone
+                    </div>
+                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+                      Une demande {mmProvider === 'togocel' ? 'Mixx by Togocel' : 'Moov Money'} a été envoyée au {mmPhone}.
+                      Entrez votre code secret Mobile Money sur votre téléphone pour confirmer.
+                    </p>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>⏳ En attente de confirmation…</div>
+                  </>
+                )}
+                {mmTransaction.status === 'APPROVED' && (
+                  <div style={{ color: 'var(--status-success)', fontWeight: '800', fontSize: '15px' }}>
+                    ✅ Paiement confirmé — merci !
                   </div>
-                );
-              })()}
+                )}
+                {['DECLINED', 'CANCELED', 'EXPIRED', 'FAILED'].includes(mmTransaction.status) && (
+                  <div style={{ color: 'var(--status-danger)', fontWeight: '800', fontSize: '15px' }}>
+                    ❌ Paiement refusé ou annulé. Vous pouvez réessayer.
+                  </div>
+                )}
 
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  style={{ flex: 1 }}
-                  onClick={() => setPaymentModalItem(null)}
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-cta"
-                  style={{ flex: 2 }}
-                  disabled={paymentSubmitting}
-                >
-                  {paymentSubmitting ? 'Envoi...' : '✅ Confirmer le versement'}
-                </button>
+                <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                  {mmTransaction.status !== 'PENDING' && mmTransaction.status !== 'APPROVED' && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ flex: 1 }}
+                      onClick={() => { setMmTransaction(null); setMmPolling(false); }}
+                    >
+                      Réessayer
+                    </button>
+                  )}
+                  <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={closePaymentModal}>
+                    Fermer
+                  </button>
+                </div>
               </div>
-            </form>
+            ) : (
+              <>
+                {paymentMode === 'mobile_money' && mmError && (
+                  <div className="login-error" style={{ marginBottom: '16px' }}>{mmError}</div>
+                )}
+                {paymentMode === 'manual' && paymentError && (
+                  <div className="login-error" style={{ marginBottom: '16px' }}>{paymentError}</div>
+                )}
+
+                <form onSubmit={paymentMode === 'mobile_money' ? handleMobileMoneySubmit : handlePaymentSubmit} className="login-form">
+                  <div className="form-group">
+                    <label style={{ fontWeight: '700' }}>Montant à régler (FCFA)</label>
+                    <input
+                      type="number"
+                      step="1"
+                      min="1"
+                      max={Math.max(0, paymentModalItem.amount - (paymentModalItem.paidAmount || 0))}
+                      className="form-input"
+                      placeholder="Ex: 75000"
+                      value={paymentAmount}
+                      onChange={(e) => {
+                        setPaymentAmount(e.target.value);
+                        setPaymentError('');
+                        setMmError('');
+                      }}
+                      required
+                      autoFocus
+                    />
+                    <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '6px' }}>
+                      {paymentMode === 'mobile_money'
+                        ? 'Paiement immédiat par push USSD — le montant est débité exactement, sans frais supplémentaires.'
+                        : 'Vous pouvez payer partiellement ou intégralement. Le gérant validera votre versement.'}
+                    </p>
+                  </div>
+
+                  {/* Raccourcis rapides */}
+                  {(() => {
+                    const remaining = Math.max(0, paymentModalItem.amount - (paymentModalItem.paidAmount || 0));
+                    const shortcuts = [
+                      { label: '25%', value: Math.round(remaining * 0.25) },
+                      { label: '50%', value: Math.round(remaining * 0.5) },
+                      { label: '75%', value: Math.round(remaining * 0.75) },
+                      { label: 'Total', value: remaining },
+                    ];
+                    return (
+                      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
+                        {shortcuts.map((s) => (
+                          <button
+                            key={s.label}
+                            type="button"
+                            className="btn btn-secondary"
+                            style={{ flex: '1', minWidth: '60px', padding: '6px 8px', fontSize: '12px', fontWeight: '700' }}
+                            onClick={() => { setPaymentAmount(s.value.toString()); setPaymentError(''); setMmError(''); }}
+                          >
+                            {s.label}<br/>
+                            <span style={{ fontSize: '10px', fontWeight: '400', opacity: 0.7 }}>{s.value.toLocaleString()} F</span>
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
+
+                  {paymentMode === 'mobile_money' && (
+                    <>
+                      <div className="form-group">
+                        <label style={{ fontWeight: '700' }}>Opérateur Mobile Money</label>
+                        <select
+                          className="form-select"
+                          value={mmProvider}
+                          onChange={(e) => setMmProvider(e.target.value as 'togocel' | 'moov_tg')}
+                        >
+                          <option value="togocel">Mixx by Togocel</option>
+                          <option value="moov_tg">Moov Money Togo</option>
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label style={{ fontWeight: '700' }}>Numéro Mobile Money</label>
+                        <input
+                          type="tel"
+                          className="form-input"
+                          placeholder="Ex: 90 12 34 56"
+                          value={mmPhone}
+                          onChange={(e) => { setMmPhone(e.target.value); setMmError(''); }}
+                          required
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={closePaymentModal}>
+                      Annuler
+                    </button>
+                    <button
+                      type="submit"
+                      className="btn btn-cta"
+                      style={{ flex: 2 }}
+                      disabled={paymentMode === 'mobile_money' ? mmSubmitting : paymentSubmitting}
+                    >
+                      {paymentMode === 'mobile_money'
+                        ? (mmSubmitting ? 'Envoi de la demande...' : '📲 Payer par Mobile Money')
+                        : (paymentSubmitting ? 'Envoi...' : '✅ Confirmer le versement')}
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
           </div>
         </div>
       )}
