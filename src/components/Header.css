@@ -7,10 +7,58 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   padding: 0 30px;
   position: sticky;
   top: 0;
   z-index: 99;
+}
+
+.header-menu-btn {
+  display: none;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-default);
+  border: 1px solid var(--steel-border);
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.header-menu-btn:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+@media (max-width: 900px) {
+  .header {
+    padding: 0 16px;
+  }
+
+  .header-menu-btn {
+    display: flex;
+  }
+
+  .header-search-container {
+    width: auto;
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 560px) {
+  .header-search-container {
+    display: none;
+  }
+
+  .profile-details {
+    display: none;
+  }
 }
 
 /* Search Bar on the Left */

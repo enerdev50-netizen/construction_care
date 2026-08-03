@@ -166,3 +166,49 @@
   border-color: rgba(239, 68, 68, 0.3);
   color: var(--status-danger);
 }
+
+/* ==========================================================================
+   NAVIGATION MOBILE / TABLETTE (< 900px)
+   La sidebar quitte le flux et devient un tiroir escamotable par-dessus le
+   contenu, ouvert/fermé via le hamburger du Header (voir Dashboard.tsx).
+   ========================================================================== */
+.sidebar-overlay {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    margin: 0;
+    height: 100vh;
+    width: min(280px, 78vw);
+    border-radius: 0;
+    border-left: none;
+    border-top: none;
+    border-bottom: none;
+    transform: translateX(-100%);
+    z-index: 1000;
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+    z-index: 999;
+  }
+
+  .sidebar-overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}

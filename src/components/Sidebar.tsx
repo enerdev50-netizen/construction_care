@@ -20,9 +20,11 @@ interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   company?: any;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, company: propCompany }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, company: propCompany, isOpen, onClose }) => {
   const navigate = useNavigate();
   const userStr = localStorage.getItem('construction_user');
   const user = userStr ? JSON.parse(userStr) : null;
@@ -132,48 +134,54 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, company: pro
   };
 
   return (
-    <aside className="sidebar">
-      <div className="sidebar-header">
-        <div className="logo-container" style={{ overflow: 'hidden', backgroundColor: company?.logoUrl ? '#fff' : 'var(--accent-soft)' }}>
-          {company && company.logoUrl ? (
-            <img src={company.logoUrl} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-          ) : (
-            <Layers size={22} strokeWidth={2.5} />
-          )}
-        </div>
-        <div className="logo-text">
-          <h2>ConstructCare</h2>
-          <span>{company ? company.name : 'Bâtiment'}</span>
-        </div>
-      </div>
-
-      <nav className="sidebar-menu">
-        {menuItems.map((item) => (
-          <button
-            key={item.id}
-            className={`menu-item ${activeTab === item.id ? 'active' : ''}`}
-            onClick={() => setActiveTab(item.id)}
-          >
-            {item.icon}
-            <span>{item.label}</span>
-          </button>
-        ))}
-      </nav>
-
-      <div className="sidebar-footer">
-        <div className="user-info">
-          <div className="avatar">{avatarInitials || <Users size={16} />}</div>
-          <div className="user-details">
-            <span className="user-name">{`${user.firstName} ${user.lastName}`}</span>
-            <span className="user-role">{getRoleLabel(user.role)}</span>
+    <>
+      <div className={`sidebar-overlay ${isOpen ? 'visible' : ''}`} onClick={onClose} />
+      <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
+        <div className="sidebar-header">
+          <div className="logo-container" style={{ overflow: 'hidden', backgroundColor: company?.logoUrl ? '#fff' : 'var(--accent-soft)' }}>
+            {company && company.logoUrl ? (
+              <img src={company.logoUrl} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            ) : (
+              <Layers size={22} strokeWidth={2.5} />
+            )}
+          </div>
+          <div className="logo-text">
+            <h2>ConstructCare</h2>
+            <span>{company ? company.name : 'Bâtiment'}</span>
           </div>
         </div>
-        <button className="logout-btn" onClick={handleLogout}>
-          <LogOut size={16} />
-          <span>Déconnexion</span>
-        </button>
-      </div>
-    </aside>
+
+        <nav className="sidebar-menu">
+          {menuItems.map((item) => (
+            <button
+              key={item.id}
+              className={`menu-item ${activeTab === item.id ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab(item.id);
+                onClose?.();
+              }}
+            >
+              {item.icon}
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </nav>
+
+        <div className="sidebar-footer">
+          <div className="user-info">
+            <div className="avatar">{avatarInitials || <Users size={16} />}</div>
+            <div className="user-details">
+              <span className="user-name">{`${user.firstName} ${user.lastName}`}</span>
+              <span className="user-role">{getRoleLabel(user.role)}</span>
+            </div>
+          </div>
+          <button className="logout-btn" onClick={handleLogout}>
+            <LogOut size={16} />
+            <span>Déconnexion</span>
+          </button>
+        </div>
+      </aside>
+    </>
   );
 };
 

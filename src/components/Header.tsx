@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, AlertTriangle, ShieldCheck, Search, Settings } from 'lucide-react';
+import { Bell, AlertTriangle, ShieldCheck, Search, Settings, Menu } from 'lucide-react';
 import api from '../api';
 import './Header.css';
 
 interface HeaderProps {
   title?: string;
   onSearchChange?: (val: string) => void;
+  onMenuClick?: () => void;
 }
 
 interface AlertMaterial {
@@ -16,7 +17,7 @@ interface AlertMaterial {
   unit: string;
 }
 
-const Header: React.FC<HeaderProps> = ({ title, onSearchChange }) => {
+const Header: React.FC<HeaderProps> = ({ title, onSearchChange, onMenuClick }) => {
   const [showNotif, setShowNotif] = useState(false);
   const [alerts, setAlerts] = useState<AlertMaterial[]>([]);
   const userStr = localStorage.getItem('construction_user');
@@ -56,6 +57,12 @@ const Header: React.FC<HeaderProps> = ({ title, onSearchChange }) => {
 
   return (
     <header className="header">
+      {onMenuClick && (
+        <button className="header-menu-btn" onClick={onMenuClick} aria-label="Ouvrir le menu">
+          <Menu size={20} />
+        </button>
+      )}
+
       {/* Search Input on the Left */}
       <div className="header-search-container">
         <Search size={18} className="search-icon" />

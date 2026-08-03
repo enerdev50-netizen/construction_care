@@ -250,6 +250,7 @@ const Dashboard: React.FC = () => {
 
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [company, setCompany] = useState<any>(null);
@@ -1246,11 +1247,20 @@ const Dashboard: React.FC = () => {
   return (
     <div className="dashboard-container">
       {/* Barre Latérale */}
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} company={company} />
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        company={company}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
 
       {/* Zone Principale */}
       <div className="dashboard-main-content">
-        <Header onSearchChange={selectedProjectId ? undefined : setSearchQuery} />
+        <Header
+          onSearchChange={selectedProjectId ? undefined : setSearchQuery}
+          onMenuClick={() => setSidebarOpen(true)}
+        />
 
         <div className="dashboard-scrollable">
           {selectedDevisId ? (
