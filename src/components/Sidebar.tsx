@@ -3,8 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Briefcase,
-  DollarSign,
-  Hammer,
   FileText,
   Users,
   LogOut,
@@ -66,19 +64,12 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, company: pro
           { id: 'projects', label: 'Mes Chantiers', icon: <Briefcase size={18} /> },
         ];
         
-        const hasMaterials = !planConfig || planConfig.features?.includes('MATERIAUX');
         const hasDocuments = !planConfig || planConfig.features?.includes('DOCUMENTS');
-        
+
         if (hasDocuments) {
           items.push({ id: 'payments', label: 'Paiements reçus', icon: <Wallet size={18} /> });
         }
-        
-        items.push({ id: 'expenses', label: 'Dépenses', icon: <DollarSign size={18} /> });
-        
-        if (hasMaterials) {
-          items.push({ id: 'materials', label: 'Matériaux & Stock', icon: <Hammer size={18} /> });
-        }
-        
+
         if (hasDocuments) {
           items.push({ id: 'admin-devis', label: 'Devis', icon: <FileText size={18} /> });
         }
@@ -100,7 +91,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, company: pro
         if (hasDocuments) {
           items.push({ id: 'payments', label: 'Paiements reçus', icon: <Wallet size={18} /> });
         }
-        items.push({ id: 'expenses', label: 'Dépenses', icon: <DollarSign size={18} /> });
         break;
       }
       case 'WORKER':

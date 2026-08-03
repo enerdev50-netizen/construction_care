@@ -51,12 +51,6 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
   const [availableUsers, setAvailableUsers] = useState<any[]>([]);
   const [assignedUserIds, setAssignedUserIds] = useState<string[]>([]);
 
-  const [showAddExpenseModal, setShowAddExpenseModal] = useState(false);
-  const [expAmount, setExpAmount] = useState('');
-  const [expCategory, setExpCategory] = useState('CIMENT');
-  const [expDesc, setExpDesc] = useState('');
-  const [expDate, setExpDate] = useState('');
-
   const [showAddDocumentModal, setShowAddDocumentModal] = useState(false);
   const [docTitle, setDocTitle] = useState('');
   const [docType, setDocType] = useState('FACTURE');
@@ -85,10 +79,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
   const [premiumAlert, setPremiumAlert] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [users, setUsers] = useState<any[]>([]);
-  const [editingExpense, setEditingExpense] = useState<any | null>(null);
   const [editingDocument, setEditingDocument] = useState<any | null>(null);
-  const [customCategory, setCustomCategory] = useState('');
-  const [expBeneficiaryId, setExpBeneficiaryId] = useState('');
   const [docFileBase64, setDocFileBase64] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -225,99 +216,6 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
       setAssignedUserIds(assignedUserIds.filter((id) => id !== userId));
     } else {
       setAssignedUserIds([...assignedUserIds, userId]);
-    }
-  };
-
-  // Helpers Edition / Suppression Dépense
-  const openNewExpenseModal = () => {
-    setEditingExpense(null);
-    setExpAmount('');
-    setExpCategory('CIMENT');
-    setCustomCategory('');
-    setExpDesc('');
-    setExpDate('');
-    setExpBeneficiaryId('');
-    setErrorMsg('');
-    setShowAddExpenseModal(true);
-  };
-
-  const startEditExpense = (exp: any) => {
-    setEditingExpense(exp);
-    setExpAmount(exp.amount.toString());
-    if (!['CIMENT', 'SABLE', 'TRANSPORT', 'MAIN_DOEUVRE', 'AUTRE'].includes(exp.category)) {
-      setExpCategory('CUSTOM');
-      setCustomCategory(exp.category);
-    } else {
-      setExpCategory(exp.category);
-      setCustomCategory('');
-    }
-    setExpDesc(exp.description);
-    setExpDate(exp.date ? exp.date.substring(0, 10) : '');
-    setExpBeneficiaryId(exp.beneficiaryId || '');
-    setErrorMsg('');
-    setShowAddExpenseModal(true);
-  };
-
-  const deleteExpense = async (id: string) => {
-    if (window.confirm("Supprimer cette dépense ?")) {
-      try {
-        await api.delete(`/expenses/${id}`);
-        fetchProjectDetails();
-      } catch (err) {
-        console.error(err);
-      }
-    }
-  };
-
-  const handleAddExpenseSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg('');
-    const finalCategory = expCategory === 'CUSTOM' ? customCategory : expCategory;
-    if (!finalCategory) {
-      setErrorMsg('La catégorie est requise.');
-      return;
-    }
-
-    if (expDate) {
-      const selectedDate = new Date(expDate);
-      const today = new Date();
-      today.setHours(23, 59, 59, 999);
-      if (selectedDate > today) {
-        setErrorMsg("La date de dépense ne peut pas être dans le futur.");
-        return;
-      }
-    }
-
-    setSubmitting(true);
-    try {
-      const payload = {
-        projectId,
-        amount: parseFloat(expAmount),
-        category: finalCategory,
-        description: expDesc,
-        date: expDate || undefined,
-        beneficiaryId: finalCategory === 'MAIN_DOEUVRE' ? (expBeneficiaryId || null) : null,
-      };
-
-      if (editingExpense) {
-        await api.put(`/expenses/${editingExpense.id}`, payload);
-      } else {
-        await api.post('/expenses', payload);
-      }
-
-      setShowAddExpenseModal(false);
-      setEditingExpense(null);
-      setExpAmount('');
-      setExpCategory('CIMENT');
-      setCustomCategory('');
-      setExpDesc('');
-      setExpDate('');
-      setExpBeneficiaryId('');
-      fetchProjectDetails();
-    } catch (err: any) {
-      setErrorMsg(err.response?.data?.error || 'Erreur d\'enregistrement.');
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -523,10 +421,6 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
   }
 
   // Calculs financiers
-  const totalSpent = project.expenses?.reduce((sum: number, e: any) => sum + e.amount, 0) || 0;
-  const totalLaborSpent = project.expenses?.filter((e: any) => e.category === 'MAIN_DOEUVRE').reduce((sum: number, e: any) => sum + e.amount, 0) || 0;
-  const totalMaterialsSpent = totalSpent - totalLaborSpent;
-
   const totalInvoiced = project.documents?.filter((d: any) => d.type === 'FACTURE').reduce((sum: number, d: any) => sum + d.amount, 0) || 0;
   const totalPaid = project.documents?.filter((d: any) => d.type === 'FACTURE').reduce((sum: number, d: any) => sum + (d.paidAmount || 0), 0) || 0;
   const totalDeclaredPending = project.documents?.filter((d: any) => d.type === 'FACTURE' && d.status === 'PAYE_CLIENT').reduce((sum: number, d: any) => sum + (d.declaredPaidAmount || 0), 0) || 0;
@@ -712,9 +606,6 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
                 Utilisez ces raccourcis pour alimenter la comptabilité, modifier les tâches et mettre à jour le stock en temps réel.
               </p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
-                <button className="btn btn-primary" onClick={openNewExpenseModal}>
-                  <Plus size={16} /> Log une Dépense
-                </button>
                 <button className="btn btn-cta" onClick={openNewDocumentModal}>
                   <Plus size={16} /> Nouvelle Facture / Devis
                 </button>
@@ -893,28 +784,6 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
                 )}
               </div>
 
-              {/* Main d'œuvre */}
-              <div style={{ background: 'var(--bg-primary)', border: '1px solid var(--steel-border)', padding: '16px', borderRadius: '8px' }}>
-                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase' }}>Main d'œuvre (Paies)</span>
-                <h4 style={{ fontSize: '18px', fontWeight: '800', marginTop: '6px', color: 'var(--status-danger)' }}>
-                  -{totalLaborSpent.toLocaleString()} FCFA
-                </h4>
-                <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
-                  Règlement ouvriers & chefs
-                </span>
-              </div>
-
-              {/* Matériaux & Logistique */}
-              <div style={{ background: 'var(--bg-primary)', border: '1px solid var(--steel-border)', padding: '16px', borderRadius: '8px' }}>
-                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase' }}>Matériaux / Autres</span>
-                <h4 style={{ fontSize: '18px', fontWeight: '800', marginTop: '6px', color: 'var(--status-danger)' }}>
-                  -{totalMaterialsSpent.toLocaleString()} FCFA
-                </h4>
-                <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
-                  Ciment, sable, transport, etc.
-                </span>
-              </div>
-
               {/* Reste à Payer */}
               <div style={{ background: 'var(--bg-primary)', border: '1px solid var(--steel-border)', padding: '16px', borderRadius: '8px', borderLeft: '4px solid ' + (resteAPayer > 0 ? 'var(--status-danger)' : 'var(--status-success)') }}>
                 <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase' }}>Reste à Payer</span>
@@ -931,9 +800,6 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
           {/* Boutons d'action financière */}
           {userRole === 'COMPANY_ADMIN' && (
             <div style={{ display: 'flex', gap: '12px' }}>
-              <button className="btn btn-primary" onClick={openNewExpenseModal}>
-                <Plus size={16} /> Enregistrer une Dépense
-              </button>
               <button className="btn btn-cta" onClick={openNewDocumentModal}>
                 <Plus size={16} /> Créer Facture / Devis
               </button>
@@ -959,9 +825,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
               const isPartial = item.status === 'PAYE_PARTIEL';
               const isSigned = item.status === 'SIGNE';
 
-              const devisAmount = item.type === 'DEVIS'
-                ? (item.amount || (item.expenses?.reduce((s: number, e: any) => s + e.amount, 0) || 0))
-                : item.amount;
+              const devisAmount = item.amount;
 
               return (
                 <tr key={item.id}>
@@ -1056,144 +920,6 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
                           </button>
                         </>
                       )}
-                    </div>
-                  </td>
-                </tr>
-              );
-            }}
-          />
-
-          {/* 2. Main d'œuvre */}
-          <DataTable
-            title="2. Historique des Règlements Main d'œuvre"
-            subtitle="Suivi des salaires et paiements versés aux ouvriers et chefs de chantier"
-            columns={[
-              { key: 'description', label: 'Bénéficiaire / Description' },
-              { key: 'amount', label: 'Montant versé' },
-              { key: 'status', label: 'Statut' },
-              { key: 'date', label: 'Date' },
-              { key: 'actions', label: 'Actions' },
-            ]}
-            data={project.expenses?.filter((e: any) => e.category === 'MAIN_DOEUVRE')}
-            renderRow={(item) => {
-              const isPaid = item.status === 'PAYE';
-              const isDeclared = item.status === 'PAYE_CLIENT';
-              return (
-                <tr key={item.id}>
-                  <td style={{ fontWeight: '600' }}>{item.description}</td>
-                  <td style={{ fontWeight: '700', color: 'var(--status-danger)' }}>-{item.amount.toLocaleString()} FCFA</td>
-                  <td>
-                    <span className={`badge badge-${isPaid ? 'success' : isDeclared ? 'warning' : 'danger'}`}>
-                      {isPaid ? 'Payé' : isDeclared ? 'Déclaré (Client)' : 'En attente'}
-                    </span>
-                  </td>
-                  <td style={{ color: 'var(--text-secondary)' }}>
-                    {new Date(item.date).toLocaleDateString()}
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      {isDeclared && userRole === 'COMPANY_ADMIN' && (
-                        <button
-                          className="btn btn-cta"
-                          style={{ padding: '6px 10px', fontSize: '11px' }}
-                          onClick={async () => {
-                            try {
-                              await api.put(`/expenses/${item.id}/status`, { status: 'PAYE' });
-                              fetchProjectDetails();
-                            } catch (err) {
-                              console.error("Erreur de validation", err);
-                            }
-                          }}
-                        >
-                          Valider
-                        </button>
-                      )}
-                      <button
-                        className="btn btn-secondary"
-                        style={{ padding: '6px 10px', fontSize: '11px' }}
-                        onClick={() => startEditExpense(item)}
-                      >
-                        Modifier
-                      </button>
-                      <button
-                        className="btn btn-danger"
-                        style={{ padding: '6px 10px', fontSize: '11px' }}
-                        onClick={() => deleteExpense(item.id)}
-                      >
-                        Supprimer
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            }}
-          />
-
-          {/* 3. Matériaux et Autres Dépenses */}
-          <DataTable
-            title="3. Historique des Achats Matériaux & Transports"
-            subtitle="Suivi des dépenses d'approvisionnement en ciment, sable, transport, etc."
-            columns={[
-              { key: 'category', label: 'Matériel / Catégorie' },
-              { key: 'description', label: 'Libellé de la dépense' },
-              { key: 'amount', label: 'Montant' },
-              { key: 'status', label: 'Statut' },
-              { key: 'date', label: 'Date' },
-              { key: 'actions', label: 'Actions' },
-            ]}
-            data={project.expenses?.filter((e: any) => e.category !== 'MAIN_DOEUVRE')}
-            renderRow={(item) => {
-              const isPaid = item.status === 'PAYE';
-              const isDeclared = item.status === 'PAYE_CLIENT';
-              return (
-                <tr key={item.id}>
-                  <td>
-                    <span className={`badge ${item.category === 'CIMENT' ? 'badge-active' : item.category === 'SABLE' ? 'badge-warning' : 'badge-pending'}`}>
-                      {item.category}
-                    </span>
-                  </td>
-                  <td>{item.description}</td>
-                  <td style={{ fontWeight: '700', color: 'var(--status-danger)' }}>-{item.amount.toLocaleString()} FCFA</td>
-                  <td>
-                    <span className={`badge badge-${isPaid ? 'success' : isDeclared ? 'warning' : 'danger'}`}>
-                      {isPaid ? 'Payé' : isDeclared ? 'Déclaré (Client)' : 'En attente'}
-                    </span>
-                  </td>
-                  <td style={{ color: 'var(--text-secondary)' }}>
-                    {new Date(item.date).toLocaleDateString()}
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      {isDeclared && userRole === 'COMPANY_ADMIN' && (
-                        <button
-                          className="btn btn-cta"
-                          style={{ padding: '6px 10px', fontSize: '11px' }}
-                          onClick={async () => {
-                            try {
-                              await api.put(`/expenses/${item.id}/status`, { status: 'PAYE' });
-                              fetchProjectDetails();
-                            } catch (err) {
-                              console.error("Erreur de validation", err);
-                            }
-                          }}
-                        >
-                          Valider
-                        </button>
-                      )}
-                      <button
-                        className="btn btn-secondary"
-                        style={{ padding: '6px 10px', fontSize: '11px' }}
-                        onClick={() => startEditExpense(item)}
-                      >
-                        Modifier
-                      </button>
-                      <button
-                        className="btn btn-danger"
-                        style={{ padding: '6px 10px', fontSize: '11px' }}
-                        onClick={() => deleteExpense(item.id)}
-                      >
-                        Supprimer
-                      </button>
                     </div>
                   </td>
                 </tr>
@@ -1444,104 +1170,6 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
               </div>
               <button type="submit" className="btn btn-primary login-btn" style={{ marginTop: '15px' }} disabled={submitting}>
                 {submitting ? 'Enregistrement...' : "Enregistrer l'équipe"}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal 3: Log une dépense */}
-      {showAddExpenseModal && (
-        <div className="modal-overlay">
-          <div className="modal-content glass-panel">
-            <div className="modal-header">
-              <span className="modal-title">Enregistrer une Dépense</span>
-              <button className="modal-close-btn" onClick={() => setShowAddExpenseModal(false)}>
-                <X size={18} />
-              </button>
-            </div>
-            {errorMsg && <div className="login-error">{errorMsg}</div>}
-            <form onSubmit={handleAddExpenseSubmit} className="login-form">
-              <div className="form-group">
-                <label>Montant Dépense (FCFA)</label>
-                <input
-                  type="number"
-                  step="1"
-                  min="0"
-                  className="form-input"
-                  placeholder="Ex: 350000"
-                  value={expAmount}
-                  onChange={(e) => setExpAmount(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Catégorie</label>
-                <select
-                  className="form-select"
-                  value={expCategory}
-                  onChange={(e) => setExpCategory(e.target.value)}
-                  required
-                >
-                  <option value="CIMENT">Achat de Ciment</option>
-                  <option value="SABLE">Achat de Sable</option>
-                  <option value="TRANSPORT">Frais de Transport</option>
-                  <option value="MAIN_DOEUVRE">Main d'œuvre / Paie</option>
-                  <option value="AUTRE">Autre dépense matériel</option>
-                  <option value="CUSTOM">Autre / Nouvelle catégorie...</option>
-                </select>
-              </div>
-              {expCategory === 'CUSTOM' && (
-                <div className="form-group">
-                  <label>Nom de la catégorie personnalisée</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="Ex: Électricité, Peinture, etc."
-                    value={customCategory}
-                    onChange={(e) => setCustomCategory(e.target.value)}
-                    required
-                  />
-                </div>
-              )}
-              {expCategory === 'MAIN_DOEUVRE' && (
-                <div className="form-group">
-                  <label>Bénéficiaire (Employé / Ouvrier)</label>
-                  <select
-                    className="form-select"
-                    value={expBeneficiaryId}
-                    onChange={(e) => setExpBeneficiaryId(e.target.value)}
-                    required
-                  >
-                    <option value="">-- Sélectionner le bénéficiaire --</option>
-                    {users.filter((u: any) => u.role !== 'CLIENT').map((u: any) => (
-                      <option key={u.id} value={u.id}>
-                        {u.firstName} {u.lastName} ({u.role})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              <div className="form-group">
-                <label>Description du matériel / Libellé / Bénéficiaire</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="Ex: Achat de 50 sacs de ciment ou Paie journalière maçons"
-                  value={expDesc}
-                  onChange={(e) => setExpDesc(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Date de la dépense</label>
-                <DatePicker
-                  value={expDate}
-                  onChange={setExpDate}
-                />
-              </div>
-              <button type="submit" className="btn btn-primary login-btn" disabled={submitting}>
-                {submitting ? 'Enregistrement...' : editingExpense ? 'Modifier la Dépense' : 'Log Dépense'}
               </button>
             </form>
           </div>
@@ -1898,123 +1526,47 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
                 </div>
               </div>
 
-              {/* Tableau d'articles dynamique */}
-              {printDoc.document.expenses && printDoc.document.expenses.length > 0 ? (
-                <>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', margin: '20px 0' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '2px solid #333' }}>
-                        <th style={{ textAlign: 'left', padding: '10px 0', fontSize: '12px', textTransform: 'uppercase' }}>N° / Description des postes</th>
-                        <th style={{ textAlign: 'left', padding: '10px 0', fontSize: '12px', textTransform: 'uppercase' }}>Catégorie</th>
-                        <th style={{ textAlign: 'right', padding: '10px 0', fontSize: '12px', textTransform: 'uppercase' }}>Total (FCFA)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {printDoc.document.expenses.map((e: any, idx: number) => (
-                        <tr key={e.id} style={{ borderBottom: '1px solid #EEE' }}>
-                          <td style={{ padding: '12px 0', fontSize: '13px' }}>
-                            <strong>{String(idx + 1).padStart(2, '0')}</strong> | {e.description}
-                          </td>
-                          <td style={{ padding: '12px 0', fontSize: '12px', color: '#666' }}>
-                            {e.category === 'MAIN_DOEUVRE' ? '👷 Prestation / Main d\'œuvre' : `🛒 Achat matériel (${e.category})`}
-                          </td>
-                          <td style={{ textAlign: 'right', padding: '12px 0', fontWeight: '600', fontSize: '13px' }}>
-                            {e.amount.toLocaleString()}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+              {/* Tableau d'articles */}
+              <table style={{ width: '100%', borderCollapse: 'collapse', margin: '20px 0' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid #333' }}>
+                    <th style={{ textAlign: 'left', padding: '10px 0', fontSize: '13px' }}>Description des prestations</th>
+                    <th style={{ textAlign: 'right', padding: '10px 0', fontSize: '13px' }}>Total (FCFA)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style={{ borderBottom: '1px solid #EEE' }}>
+                    <td style={{ padding: '15px 0', fontSize: '13px' }}>
+                      <strong>{printDoc.document.title}</strong><br />
+                      <span style={{ fontSize: '11px', color: '#666' }}>Prestations globales de construction suivant cahier des charges chantier.</span>
+                    </td>
+                    <td style={{ textAlign: 'right', padding: '15px 0', fontWeight: 'bold', fontSize: '14px' }}>
+                      {printDoc.document.amount.toLocaleString()} FCFA
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
 
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
-                    <table style={{ width: '320px', borderCollapse: 'collapse', borderTop: '2px solid #333' }}>
-                      <tbody>
-                        {printDoc.document.expenses.filter((e: any) => e.category !== 'MAIN_DOEUVRE').length > 0 && (
-                          <tr>
-                            <td style={{ padding: '8px 0', fontSize: '13px', color: '#555' }}>Total achat matériel</td>
-                            <td style={{ textAlign: 'right', padding: '8px 0', fontSize: '13px', fontWeight: '600' }}>
-                              {printDoc.document.expenses.filter((e: any) => e.category !== 'MAIN_DOEUVRE').reduce((s: number, e: any) => s + e.amount, 0).toLocaleString()} FCFA
-                            </td>
-                          </tr>
-                        )}
-                        {printDoc.document.expenses.filter((e: any) => e.category === 'MAIN_DOEUVRE').length > 0 && (
-                          <tr>
-                            <td style={{ padding: '8px 0', fontSize: '13px', color: '#555' }}>Total prestation main d'œuvre</td>
-                            <td style={{ textAlign: 'right', padding: '8px 0', fontSize: '13px', fontWeight: '600' }}>
-                              {printDoc.document.expenses.filter((e: any) => e.category === 'MAIN_DOEUVRE').reduce((s: number, e: any) => s + e.amount, 0).toLocaleString()} FCFA
-                            </td>
-                          </tr>
-                        )}
-                        <tr style={{ borderTop: '1px solid #333' }}>
-                          <td style={{ padding: '10px 0', fontSize: '14px', fontWeight: 'bold' }}>TOTAL GÉNÉRAL</td>
-                          <td style={{ textAlign: 'right', padding: '10px 0', fontSize: '14px', fontWeight: 'bold', color: 'var(--accent)' }}>
-                            {(printDoc.document.type === 'DEVIS' ? (printDoc.document.expenses?.reduce((s: number, e: any) => s + e.amount, 0) || 0) : printDoc.document.amount).toLocaleString()} FCFA
-                          </td>
-                        </tr>
-                        {printDoc.document.type === 'FACTURE' && (
-                          <>
-                            <tr>
-                              <td style={{ padding: '6px 0', fontSize: '12px', color: 'var(--status-success)' }}>Montant payé</td>
-                              <td style={{ textAlign: 'right', padding: '6px 0', fontSize: '12px', fontWeight: '600', color: 'var(--status-success)' }}>
-                                {(printDoc.document.paidAmount || 0).toLocaleString()} FCFA
-                              </td>
-                            </tr>
-                            <tr style={{ borderTop: '1px dashed #ccc' }}>
-                              <td style={{ padding: '8px 0', fontSize: '13px', fontWeight: 'bold', color: 'var(--status-danger)' }}>Reste à payer</td>
-                              <td style={{ textAlign: 'right', padding: '8px 0', fontSize: '13px', fontWeight: 'bold', color: 'var(--status-danger)' }}>
-                                {Math.max(0, printDoc.document.amount - (printDoc.document.paidAmount || 0)).toLocaleString()} FCFA
-                              </td>
-                            </tr>
-                          </>
-                        )}
-                      </tbody>
-                    </table>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '30px' }}>
+                <div style={{ width: '280px', borderTop: '2px solid #333', paddingTop: '10px', textAlign: 'right' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: 'bold' }}>
+                    <span>TOTAL GÉNÉRAL :</span>
+                    <span>{printDoc.document.amount.toLocaleString()} FCFA</span>
                   </div>
-                </>
-              ) : (
-                <>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', margin: '20px 0' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '2px solid #333' }}>
-                        <th style={{ textAlign: 'left', padding: '10px 0', fontSize: '13px' }}>Description des prestations</th>
-                        <th style={{ textAlign: 'right', padding: '10px 0', fontSize: '13px' }}>Total (FCFA)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr style={{ borderBottom: '1px solid #EEE' }}>
-                        <td style={{ padding: '15px 0', fontSize: '13px' }}>
-                          <strong>{printDoc.document.title}</strong><br />
-                          <span style={{ fontSize: '11px', color: '#666' }}>Prestations globales de construction suivant cahier des charges chantier.</span>
-                        </td>
-                        <td style={{ textAlign: 'right', padding: '15px 0', fontWeight: 'bold', fontSize: '14px' }}>
-                          {(printDoc.document.type === 'DEVIS' ? (printDoc.document.expenses?.reduce((s: number, e: any) => s + e.amount, 0) || 0) : printDoc.document.amount).toLocaleString()} FCFA
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '30px' }}>
-                    <div style={{ width: '280px', borderTop: '2px solid #333', paddingTop: '10px', textAlign: 'right' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: 'bold' }}>
-                        <span>TOTAL GÉNÉRAL :</span>
-                        <span>{(printDoc.document.type === 'DEVIS' ? (printDoc.document.expenses?.reduce((s: number, e: any) => s + e.amount, 0) || 0) : printDoc.document.amount).toLocaleString()} FCFA</span>
+                  {printDoc.document.type === 'FACTURE' && (
+                    <>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--status-success)', marginTop: '4px' }}>
+                        <span>Payé :</span>
+                        <span>{(printDoc.document.paidAmount || 0).toLocaleString()} FCFA</span>
                       </div>
-                      {printDoc.document.type === 'FACTURE' && (
-                        <>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--status-success)', marginTop: '4px' }}>
-                            <span>Payé :</span>
-                            <span>{(printDoc.document.paidAmount || 0).toLocaleString()} FCFA</span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 'bold', color: 'var(--status-danger)', marginTop: '4px', borderTop: '1px dashed #ccc', paddingTop: '4px' }}>
-                            <span>Reste à payer :</span>
-                            <span>{Math.max(0, printDoc.document.amount - (printDoc.document.paidAmount || 0)).toLocaleString()} FCFA</span>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 'bold', color: 'var(--status-danger)', marginTop: '4px', borderTop: '1px dashed #ccc', paddingTop: '4px' }}>
+                        <span>Reste à payer :</span>
+                        <span>{Math.max(0, printDoc.document.amount - (printDoc.document.paidAmount || 0)).toLocaleString()} FCFA</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
 
               {printDoc.document.type === 'DEVIS' ? (
                 <div style={{ marginTop: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>

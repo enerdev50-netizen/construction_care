@@ -354,31 +354,13 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ projectId, onBack }) => {
                 const factureItems = project.documents.filter((d: any) => d.type === 'FACTURE').map((d: any) => ({
                   ...d,
                   isDevis: false,
-                  isExpense: false,
                   displayTitle: d.title,
                   displayDate: d.createdAt,
                 }));
 
-                const expenseItems = (project.expenses || [])
-                  .filter((e: any) => {
-                    // Hide raw expense if an invoice document has already been created for it
-                    const hasMatchingFacture = project.documents.some(
-                      (d: any) => d.type === 'FACTURE' && d.title === `Facture : ${e.description}`
-                    );
-                    return !hasMatchingFacture;
-                  })
-                  .map((e: any) => ({
-                    ...e,
-                    isDevis: false,
-                    isExpense: true,
-                    displayTitle: `${e.category === 'MAIN_DOEUVRE' ? '👷 Main d\'œuvre' : '🛒 Achat matériel'} : ${e.description}`,
-                    displayDate: e.date || e.createdAt,
-                  }));
-
                 const combined = [
                   ...devisItems,
                   ...factureItems,
-                  ...expenseItems,
                 ].sort((a: any, b: any) => new Date(b.displayDate).getTime() - new Date(a.displayDate).getTime());
 
                 return combined.map((item: any) => {
@@ -414,7 +396,7 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ projectId, onBack }) => {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
                           <span style={{ fontWeight: '600', fontSize: '14px', display: 'block' }}>{item.displayTitle}</span>
-                          {!item.isDevis && !item.isExpense && item.devisId && (
+                          {!item.isDevis && item.devisId && (
                             <span style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px', display: 'block' }}>
                               Liée au Devis : {project.documents?.find((d: any) => d.id === item.devisId)?.title || '—'}
                             </span>
@@ -428,9 +410,9 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ projectId, onBack }) => {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
                           <span style={{ fontWeight: '800', fontSize: '16px', color: 'var(--text-primary)' }}>
-                            {(item.isDevis ? (item.amount || (item.expenses?.reduce((s: number, e: any) => s + e.amount, 0) || 0)) : item.amount).toLocaleString()} FCFA
+                            {(item.amount || 0).toLocaleString()} FCFA
                           </span>
-                          {!item.isDevis && !item.isExpense && item.status !== 'PAYE' && (
+                          {!item.isDevis && item.status !== 'PAYE' && (
                             <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
                               Payé : {item.paidAmount?.toLocaleString() || 0} | Reste : {Math.max(0, item.amount - (item.paidAmount || 0)).toLocaleString()}
                               {item.declaredPaidAmount > 0 && (
@@ -456,56 +438,29 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ projectId, onBack }) => {
                             <button
                               className="btn btn-cta"
                               style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '5px' }}
-                              onClick={async () => {
-                                if (item.isExpense) {
-                                  if (window.confirm("Déclarer cet élément comme payé ? Le gérant ou le chef de chantier validera votre paiement.")) {
-                                    try {
-                                      await api.put(`/expenses/${item.id}/status`, { status: 'PAYE_CLIENT' });
-                                      fetchProjectDetails();
-                                    } catch (err) {
-                                      console.error("Erreur de déclaration de paiement", err);
-                                    }
-                                  }
-                                } else {
-                                  openPaymentModal(item);
-                                }
-                              }}
+                              onClick={() => openPaymentModal(item)}
                             >
                               <CreditCard size={13} /> Déclarer un versement
                             </button>
                           )}
-                          {item.isExpense ? (
-                            item.receiptUrl && (
-                              <a
-                                href={item.receiptUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="btn btn-secondary"
-                                style={{ padding: '6px 12px', fontSize: '12px', gap: '4px', display: 'flex', alignItems: 'center' }}
-                              >
-                                <Download size={13} /> Reçu
-                              </a>
-                            )
+                          {item.pdfUrl ? (
+                            <a
+                              href={item.pdfUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="btn btn-secondary"
+                              style={{ padding: '6px 12px', fontSize: '12px', gap: '4px', display: 'flex', alignItems: 'center' }}
+                            >
+                              <Download size={13} /> PDF
+                            </a>
                           ) : (
-                            item.pdfUrl ? (
-                              <a
-                                href={item.pdfUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="btn btn-secondary"
-                                style={{ padding: '6px 12px', fontSize: '12px', gap: '4px', display: 'flex', alignItems: 'center' }}
-                              >
-                                <Download size={13} /> PDF
-                              </a>
-                            ) : (
-                              <button
-                                className="btn btn-secondary"
-                                style={{ padding: '6px 12px', fontSize: '12px', gap: '4px' }}
-                                onClick={() => handlePrintPDF(item.id)}
-                              >
-                                <Printer size={13} /> Rapport PDF
-                              </button>
-                            )
+                            <button
+                              className="btn btn-secondary"
+                              style={{ padding: '6px 12px', fontSize: '12px', gap: '4px' }}
+                              onClick={() => handlePrintPDF(item.id)}
+                            >
+                              <Printer size={13} /> Rapport PDF
+                            </button>
                           )}
                         </div>
                       </div>
@@ -657,123 +612,47 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ projectId, onBack }) => {
                 </div>
               </div>
 
-              {/* Tableau d'articles dynamique */}
-              {printDoc.document.expenses && printDoc.document.expenses.length > 0 ? (
-                <>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', margin: '20px 0' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '2px solid #333' }}>
-                        <th style={{ textAlign: 'left', padding: '10px 0', fontSize: '12px', textTransform: 'uppercase' }}>N° / Description des postes</th>
-                        <th style={{ textAlign: 'left', padding: '10px 0', fontSize: '12px', textTransform: 'uppercase' }}>Catégorie</th>
-                        <th style={{ textAlign: 'right', padding: '10px 0', fontSize: '12px', textTransform: 'uppercase' }}>Total (FCFA)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {printDoc.document.expenses.map((e: any, idx: number) => (
-                        <tr key={e.id} style={{ borderBottom: '1px solid #EEE' }}>
-                          <td style={{ padding: '12px 0', fontSize: '13px' }}>
-                            <strong>{String(idx + 1).padStart(2, '0')}</strong> | {e.description}
-                          </td>
-                          <td style={{ padding: '12px 0', fontSize: '12px', color: '#666' }}>
-                            {e.category === 'MAIN_DOEUVRE' ? '👷 Prestation / Main d\'œuvre' : `🛒 Achat matériel (${e.category})`}
-                          </td>
-                          <td style={{ textAlign: 'right', padding: '12px 0', fontWeight: '600', fontSize: '13px' }}>
-                            {e.amount.toLocaleString()}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+              {/* Tableau d'articles */}
+              <table style={{ width: '100%', borderCollapse: 'collapse', margin: '20px 0' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid #333' }}>
+                    <th style={{ textAlign: 'left', padding: '10px 0', fontSize: '13px' }}>Description des prestations</th>
+                    <th style={{ textAlign: 'right', padding: '10px 0', fontSize: '13px' }}>Total (FCFA)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style={{ borderBottom: '1px solid #EEE' }}>
+                    <td style={{ padding: '15px 0', fontSize: '13px' }}>
+                      <strong>{printDoc.document.title}</strong><br />
+                      <span style={{ fontSize: '11px', color: '#666' }}>Prestations globales de construction suivant cahier des charges chantier.</span>
+                    </td>
+                    <td style={{ textAlign: 'right', padding: '15px 0', fontWeight: 'bold', fontSize: '14px' }}>
+                      {printDoc.document.amount.toLocaleString()} FCFA
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
 
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
-                    <table style={{ width: '320px', borderCollapse: 'collapse', borderTop: '2px solid #333' }}>
-                      <tbody>
-                        {printDoc.document.expenses.filter((e: any) => e.category !== 'MAIN_DOEUVRE').length > 0 && (
-                          <tr>
-                            <td style={{ padding: '8px 0', fontSize: '13px', color: '#555' }}>Total achat matériel</td>
-                            <td style={{ textAlign: 'right', padding: '8px 0', fontSize: '13px', fontWeight: '600' }}>
-                              {printDoc.document.expenses.filter((e: any) => e.category !== 'MAIN_DOEUVRE').reduce((s: number, e: any) => s + e.amount, 0).toLocaleString()} FCFA
-                            </td>
-                          </tr>
-                        )}
-                        {printDoc.document.expenses.filter((e: any) => e.category === 'MAIN_DOEUVRE').length > 0 && (
-                          <tr>
-                            <td style={{ padding: '8px 0', fontSize: '13px', color: '#555' }}>Total prestation main d'œuvre</td>
-                            <td style={{ textAlign: 'right', padding: '8px 0', fontSize: '13px', fontWeight: '600' }}>
-                              {printDoc.document.expenses.filter((e: any) => e.category === 'MAIN_DOEUVRE').reduce((s: number, e: any) => s + e.amount, 0).toLocaleString()} FCFA
-                            </td>
-                          </tr>
-                        )}
-                        <tr style={{ borderTop: '1px solid #333' }}>
-                          <td style={{ padding: '10px 0', fontSize: '14px', fontWeight: 'bold' }}>TOTAL GÉNÉRAL</td>
-                          <td style={{ textAlign: 'right', padding: '10px 0', fontSize: '14px', fontWeight: 'bold', color: 'var(--accent)' }}>
-                            {(printDoc.document.type === 'DEVIS' ? (printDoc.document.amount || (printDoc.document.expenses?.reduce((s: number, e: any) => s + e.amount, 0) || 0)) : printDoc.document.amount).toLocaleString()} FCFA
-                          </td>
-                        </tr>
-                        {printDoc.document.type === 'FACTURE' && (
-                          <>
-                            <tr>
-                              <td style={{ padding: '6px 0', fontSize: '12px', color: 'var(--status-success)' }}>Montant payé</td>
-                              <td style={{ textAlign: 'right', padding: '6px 0', fontSize: '12px', fontWeight: '600', color: 'var(--status-success)' }}>
-                                {(printDoc.document.paidAmount || 0).toLocaleString()} FCFA
-                              </td>
-                            </tr>
-                            <tr style={{ borderTop: '1px dashed #ccc' }}>
-                              <td style={{ padding: '8px 0', fontSize: '13px', fontWeight: 'bold', color: 'var(--status-danger)' }}>Reste à payer</td>
-                              <td style={{ textAlign: 'right', padding: '8px 0', fontSize: '13px', fontWeight: 'bold', color: 'var(--status-danger)' }}>
-                                {Math.max(0, printDoc.document.amount - (printDoc.document.paidAmount || 0)).toLocaleString()} FCFA
-                              </td>
-                            </tr>
-                          </>
-                        )}
-                      </tbody>
-                    </table>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '30px' }}>
+                <div style={{ width: '280px', borderTop: '2px solid #333', paddingTop: '10px', textAlign: 'right' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: 'bold' }}>
+                    <span>TOTAL GÉNÉRAL :</span>
+                    <span>{printDoc.document.amount.toLocaleString()} FCFA</span>
                   </div>
-                </>
-              ) : (
-                <>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', margin: '20px 0' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '2px solid #333' }}>
-                        <th style={{ textAlign: 'left', padding: '10px 0', fontSize: '13px' }}>Description des prestations</th>
-                        <th style={{ textAlign: 'right', padding: '10px 0', fontSize: '13px' }}>Total (FCFA)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr style={{ borderBottom: '1px solid #EEE' }}>
-                        <td style={{ padding: '15px 0', fontSize: '13px' }}>
-                          <strong>{printDoc.document.title}</strong><br />
-                          <span style={{ fontSize: '11px', color: '#666' }}>Prestations globales de construction suivant cahier des charges chantier.</span>
-                        </td>
-                        <td style={{ textAlign: 'right', padding: '15px 0', fontWeight: 'bold', fontSize: '14px' }}>
-                          {(printDoc.document.type === 'DEVIS' ? (printDoc.document.amount || (printDoc.document.expenses?.reduce((s: number, e: any) => s + e.amount, 0) || 0)) : printDoc.document.amount).toLocaleString()} FCFA
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '30px' }}>
-                    <div style={{ width: '280px', borderTop: '2px solid #333', paddingTop: '10px', textAlign: 'right' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: 'bold' }}>
-                        <span>TOTAL GÉNÉRAL :</span>
-                        <span>{(printDoc.document.type === 'DEVIS' ? (printDoc.document.amount || (printDoc.document.expenses?.reduce((s: number, e: any) => s + e.amount, 0) || 0)) : printDoc.document.amount).toLocaleString()} FCFA</span>
+                  {printDoc.document.type === 'FACTURE' && (
+                    <>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--status-success)', marginTop: '4px' }}>
+                        <span>Payé :</span>
+                        <span>{(printDoc.document.paidAmount || 0).toLocaleString()} FCFA</span>
                       </div>
-                      {printDoc.document.type === 'FACTURE' && (
-                        <>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--status-success)', marginTop: '4px' }}>
-                            <span>Payé :</span>
-                            <span>{(printDoc.document.paidAmount || 0).toLocaleString()} FCFA</span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 'bold', color: 'var(--status-danger)', marginTop: '4px', borderTop: '1px dashed #ccc', paddingTop: '4px' }}>
-                            <span>Reste à payer :</span>
-                            <span>{Math.max(0, printDoc.document.amount - (printDoc.document.paidAmount || 0)).toLocaleString()} FCFA</span>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 'bold', color: 'var(--status-danger)', marginTop: '4px', borderTop: '1px dashed #ccc', paddingTop: '4px' }}>
+                        <span>Reste à payer :</span>
+                        <span>{Math.max(0, printDoc.document.amount - (printDoc.document.paidAmount || 0)).toLocaleString()} FCFA</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
 
               {printDoc.document.type === 'DEVIS' ? (
                 <div style={{ marginTop: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
