@@ -522,11 +522,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
     );
   }
 
-  // Calculs financiers et d'avancement
-  const completedTasksCount = project.tasks.filter((t: any) => t.status === 'TERMINE').length;
-  const totalTasksCount = project.tasks.length;
-  const progressPercent = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
-
+  // Calculs financiers
   const totalSpent = project.expenses?.reduce((sum: number, e: any) => sum + e.amount, 0) || 0;
   const totalLaborSpent = project.expenses?.filter((e: any) => e.category === 'MAIN_DOEUVRE').reduce((sum: number, e: any) => sum + e.amount, 0) || 0;
   const totalMaterialsSpent = totalSpent - totalLaborSpent;
@@ -569,9 +565,9 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
 
         <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Caisse du Chantier</span>
-            <span style={{ fontWeight: '800', fontSize: '18px', color: projectCashBalance >= 0 ? 'var(--status-success)' : 'var(--status-danger)' }}>
-              {projectCashBalance.toLocaleString()} FCFA
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Budget du Chantier</span>
+            <span style={{ fontWeight: '800', fontSize: '18px', color: 'var(--text-primary)' }}>
+              {(project.budget || 0).toLocaleString()} FCFA
             </span>
           </div>
           <span className={`badge badge-${project.status === 'EN_COURS' ? 'active' : 'success'}`}>
@@ -683,25 +679,6 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
                 <div className="metric-progress-container">
                   <div className="metric-progress-bg">
                     <div className="metric-progress-fill" style={{ width: `${avanceGlobale}%` }} />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Progression */}
-            <div className="metric-card glass-panel">
-              <div className="metric-card-header">
-                <div className="metric-icon-wrapper purple">
-                  <Clock size={20} />
-                </div>
-                <span className="metric-tag blue">{completedTasksCount} / {totalTasksCount} tâches</span>
-              </div>
-              <div className="metric-card-body">
-                <span className="metric-label">AVANCEMENT DES TÂCHES</span>
-                <h2 className="metric-value">{progressPercent}%</h2>
-                <div className="metric-progress-container">
-                  <div className="metric-progress-bg">
-                    <div className="metric-progress-fill" style={{ width: `${progressPercent}%` }} />
                   </div>
                 </div>
               </div>
