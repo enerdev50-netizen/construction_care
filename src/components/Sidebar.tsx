@@ -81,7 +81,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, company: pro
         
         if (hasDocuments) {
           items.push({ id: 'admin-devis', label: 'Devis', icon: <FileText size={18} /> });
-          items.push({ id: 'admin-factures', label: 'Factures', icon: <Wallet size={18} /> });
         }
         
         items.push({ id: 'users', label: 'Mon Équipe / Clients', icon: <Users size={18} /> });
@@ -117,7 +116,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, company: pro
         const hasDocuments = !planConfig || planConfig.features?.includes('DOCUMENTS');
         if (hasDocuments) {
           items.push({ id: 'client-devis', label: 'Mes Devis', icon: <FileText size={18} /> });
-          items.push({ id: 'client-factures', label: 'Mes Factures', icon: <Wallet size={18} /> });
         }
         break;
       }

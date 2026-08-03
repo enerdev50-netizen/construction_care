@@ -51,10 +51,6 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
   const [availableUsers, setAvailableUsers] = useState<any[]>([]);
   const [assignedUserIds, setAssignedUserIds] = useState<string[]>([]);
 
-  const [showAddTaskModal, setShowAddTaskModal] = useState(false);
-  const [taskName, setTaskName] = useState('');
-  const [taskDueDate, setTaskDueDate] = useState('');
-
   const [showAddExpenseModal, setShowAddExpenseModal] = useState(false);
   const [expAmount, setExpAmount] = useState('');
   const [expCategory, setExpCategory] = useState('CIMENT');
@@ -195,22 +191,6 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
     await saveSiteLogItems(items);
   };
 
-  // Basculer le statut d'une tâche
-  const toggleTaskStatus = async (task: any) => {
-    let nextStatus = 'A_FAIRE';
-    if (task.status === 'A_FAIRE') nextStatus = 'EN_COURS';
-    else if (task.status === 'EN_COURS') nextStatus = 'TERMINE';
-
-    try {
-      await api.put(`/projects/${projectId}/tasks/${task.id}`, {
-        status: nextStatus,
-      });
-      fetchProjectDetails();
-    } catch (err) {
-      console.error('Erreur lors de la mise à jour de la tâche', err);
-    }
-  };
-
   // Ouvrir le modal d'affectation
   const openAssignModal = async () => {
     try {
@@ -245,28 +225,6 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
       setAssignedUserIds(assignedUserIds.filter((id) => id !== userId));
     } else {
       setAssignedUserIds([...assignedUserIds, userId]);
-    }
-  };
-
-  // Soumission Nouvelle Tâche
-  const handleAddTaskSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg('');
-    if (!taskName) return;
-    setSubmitting(true);
-    try {
-      await api.post(`/projects/${projectId}/tasks`, {
-        name: taskName,
-        dueDate: taskDueDate || undefined,
-      });
-      setShowAddTaskModal(false);
-      setTaskName('');
-      setTaskDueDate('');
-      fetchProjectDetails();
-    } catch (err: any) {
-      setErrorMsg(err.response?.data?.error || 'Erreur lors de la création.');
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -634,7 +592,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
           className={`detail-tab-btn ${activeSubTab === 'tasks' ? 'active' : ''}`}
           onClick={() => setActiveSubTab('tasks')}
         >
-          Cahier des charges & Tâches ({progressPercent}%)
+          Cahier des Charges
         </button>
         <button
           className={`detail-tab-btn ${activeSubTab === 'finances' ? 'active' : ''}`}
@@ -777,9 +735,6 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
                 Utilisez ces raccourcis pour alimenter la comptabilité, modifier les tâches et mettre à jour le stock en temps réel.
               </p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
-                <button className="btn btn-secondary" onClick={() => setShowAddTaskModal(true)}>
-                  <Plus size={16} /> Ajouter une tâche
-                </button>
                 <button className="btn btn-primary" onClick={openNewExpenseModal}>
                   <Plus size={16} /> Log une Dépense
                 </button>
@@ -927,77 +882,6 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
                   </p>
                 )}
               </>
-            )}
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-            <div>
-              <h3 style={{ fontSize: '16px', fontFamily: 'var(--font-title)', fontWeight: '800' }}>MVP Checklist de Construction</h3>
-              <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
-                Cliquez sur le carré pour changer de statut (À faire → En cours → Terminé)
-              </p>
-            </div>
-            {(userRole === 'COMPANY_ADMIN' || userRole === 'TEAM_LEADER') && (
-              <button className="btn btn-primary" onClick={() => setShowAddTaskModal(true)}>
-                <Plus size={16} /> Ajouter une Tâche
-              </button>
-            )}
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {project.tasks.map((task: any) => {
-              const isCompleted = task.status === 'TERMINE';
-              const isInProgress = task.status === 'EN_COURS';
-
-              return (
-                <div key={task.id} className="task-row">
-                  <div className="task-info">
-                    <div
-                      className={`task-checkbox-wrapper ${isCompleted ? 'completed' : ''}`}
-                      onClick={() => toggleTaskStatus(task)}
-                    >
-                      {isCompleted ? (
-                        <CheckSquare size={22} style={{ fill: 'var(--status-success-soft)' }} />
-                      ) : isInProgress ? (
-                        <Clock size={22} style={{ color: 'var(--status-pending)' }} />
-                      ) : (
-                        <Square size={22} />
-                      )}
-                    </div>
-                    <span className={`task-name ${isCompleted ? 'completed' : ''}`}>{task.name}</span>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    <span className={`badge badge-${isCompleted ? 'success' : isInProgress ? 'pending' : 'danger'}`}>
-                      {task.status === 'TERMINE' ? 'Terminé' : task.status === 'EN_COURS' ? 'En Cours' : 'À Faire'}
-                    </span>
-                    {(userRole === 'COMPANY_ADMIN' || userRole === 'TEAM_LEADER') && (
-                      <button
-                        className="btn btn-secondary"
-                        style={{ padding: '6px', minWidth: 'auto', background: 'transparent', border: 'none', color: 'var(--status-danger)' }}
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          if (window.confirm("Supprimer cette tâche ?")) {
-                            try {
-                              await api.delete(`/projects/${projectId}/tasks/${task.id}`);
-                              fetchProjectDetails();
-                            } catch (err) {
-                              console.error("Erreur suppression tâche", err);
-                            }
-                          }
-                        }}
-                      >
-                        <Trash size={16} />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-            {project.tasks.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--steel-border)' }}>
-                Aucune tâche configurée sur ce projet.
-              </div>
             )}
           </div>
         </div>
@@ -1583,44 +1467,6 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
               </div>
               <button type="submit" className="btn btn-primary login-btn" style={{ marginTop: '15px' }} disabled={submitting}>
                 {submitting ? 'Enregistrement...' : "Enregistrer l'équipe"}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal 2: Ajouter une tâche */}
-      {showAddTaskModal && (
-        <div className="modal-overlay">
-          <div className="modal-content glass-panel" style={{ maxWidth: '450px' }}>
-            <div className="modal-header">
-              <span className="modal-title">Créer une Tâche Checklist</span>
-              <button className="modal-close-btn" onClick={() => setShowAddTaskModal(false)}>
-                <X size={18} />
-              </button>
-            </div>
-            {errorMsg && <div className="login-error">{errorMsg}</div>}
-            <form onSubmit={handleAddTaskSubmit} className="login-form">
-              <div className="form-group">
-                <label>Nom de la prestation / Tâche</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="Ex: Pose du carrelage salon"
-                  value={taskName}
-                  onChange={(e) => setTaskName(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Date limite d'exécution (Optionnel)</label>
-                <DatePicker
-                  value={taskDueDate}
-                  onChange={setTaskDueDate}
-                />
-              </div>
-              <button type="submit" className="btn btn-primary login-btn" style={{ marginTop: '10px' }} disabled={submitting}>
-                {submitting ? 'Création...' : 'Créer la Tâche'}
               </button>
             </form>
           </div>
