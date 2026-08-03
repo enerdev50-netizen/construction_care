@@ -89,6 +89,10 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, company: pro
         break;
       }
       case 'TEAM_LEADER': {
+        // Note : le Chef de chantier gère les matériaux depuis le détail de CHAQUE
+        // chantier assigné (onglet "Approvisionnement Stock", scopé par projectId) —
+        // pas de vue "Matériaux & Stock" globale ici, qui listerait tous les chantiers
+        // de l'entreprise sans filtrage par affectation.
         items = [
           { id: 'projects', label: 'Chantiers Assignés', icon: <Briefcase size={18} /> },
           { id: 'progress', label: 'Photos de Suivi', icon: <Camera size={18} /> },

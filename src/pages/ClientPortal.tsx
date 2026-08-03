@@ -39,6 +39,7 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ projectId, onBack }) => {
   // État Paiement Partiel Client
   const [paymentModalItem, setPaymentModalItem] = useState<any>(null);
   const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentType, setPaymentType] = useState('ACHATS');
   const [paymentError, setPaymentError] = useState('');
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
 
@@ -227,9 +228,11 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ projectId, onBack }) => {
     try {
       await api.post(`/documents/${paymentModalItem.id}/client-declare-payment`, {
         amount: versement,
+        type: paymentType,
       });
       setPaymentModalItem(null);
       setPaymentAmount('');
+      setPaymentType('ACHATS');
       fetchProjectDetails();
     } catch (err: any) {
       const errMsg = err.response?.data?.error || err.message || JSON.stringify(err) || 'Erreur lors de la déclaration du paiement.';
@@ -958,6 +961,21 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ projectId, onBack }) => {
                         : 'Vous pouvez payer partiellement ou intégralement. Le gérant validera votre versement.'}
                     </p>
                   </div>
+
+                  {paymentMode === 'manual' && (
+                    <div className="form-group">
+                      <label style={{ fontWeight: '700' }}>Type de versement</label>
+                      <select
+                        className="form-select"
+                        value={paymentType}
+                        onChange={(e) => setPaymentType(e.target.value)}
+                        required
+                      >
+                        <option value="ACHATS">Achats</option>
+                        <option value="MAIN_DOEUVRE">Main d'œuvre</option>
+                      </select>
+                    </div>
+                  )}
 
                   {/* Raccourcis rapides */}
                   {(() => {

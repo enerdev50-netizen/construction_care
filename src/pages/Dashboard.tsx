@@ -767,6 +767,7 @@ const Dashboard: React.FC = () => {
   // États pour le modal de détails des règlements (Recettes)
   const [selectedPaymentDetail, setSelectedPaymentDetail] = useState<any | null>(null);
   const [manualPayAmount, setManualPayAmount] = useState('');
+  const [manualPayType, setManualPayType] = useState('ACHATS');
   const [detailError, setDetailError] = useState('');
   const [detailSuccess, setDetailSuccess] = useState('');
 
@@ -789,6 +790,7 @@ const Dashboard: React.FC = () => {
   const [payProjId, setPayProjId] = useState('');
   const [payTitle, setPayTitle] = useState('');
   const [payAmount, setPayAmount] = useState('');
+  const [payType, setPayType] = useState('ACHATS');
 
   const [matName, setMatName] = useState('');
   const [matMin, setMatMin] = useState('5');
@@ -1423,6 +1425,7 @@ const Dashboard: React.FC = () => {
           // Enregistrer le paiement (partiel ou total) sur la facture existante
           await api.post(`/documents/${actualId}/record-payment`, {
             amount: parseFloat(payAmount),
+            type: payType,
           });
         }
       } else {
@@ -1436,6 +1439,7 @@ const Dashboard: React.FC = () => {
 
         await api.put(`/documents/${docRes.data.id}/status`, {
           status: 'PAYE',
+          type: payType,
         });
       }
 
@@ -1443,6 +1447,7 @@ const Dashboard: React.FC = () => {
       setPayProjId('');
       setPayTitle('');
       setPayAmount('');
+      setPayType('ACHATS');
       setPayFactureId('');
       loadDashboardData();
     } catch (err: any) {
@@ -1483,9 +1488,10 @@ const Dashboard: React.FC = () => {
     }
 
     try {
-      const res = await api.post(`/documents/${selectedPaymentDetail.id}/record-payment`, { amount: amt });
+      const res = await api.post(`/documents/${selectedPaymentDetail.id}/record-payment`, { amount: amt, type: manualPayType });
       setSelectedPaymentDetail(res.data.document);
       setManualPayAmount('');
+      setManualPayType('ACHATS');
       setDetailSuccess('Paiement manuel enregistré avec succès !');
       loadDashboardData(true);
     } catch (err: any) {
@@ -4404,7 +4410,7 @@ const Dashboard: React.FC = () => {
                       </select>
                     </div>
                   )}
-                  {(!editingDocument || selectedFields.includes('file')) && docType === 'FACTURE' && (
+                  {(!editingDocument || selectedFields.includes('file')) && (
                     <div className="form-group" style={{ marginTop: '12px' }}>
                       <label>Fichier PDF Associé (optionnel)</label>
                       <input
@@ -4632,6 +4638,18 @@ const Dashboard: React.FC = () => {
                   }}
                   required
                 />
+              </div>
+              <div className="form-group">
+                <label>Type</label>
+                <select
+                  className="form-input"
+                  value={payType}
+                  onChange={(e) => setPayType(e.target.value)}
+                  required
+                >
+                  <option value="ACHATS">Achats</option>
+                  <option value="MAIN_DOEUVRE">Main d'œuvre</option>
+                </select>
               </div>
               <button type="submit" className="btn btn-primary login-btn" disabled={submitting}>
                 {submitting ? 'Enregistrement...' : 'Enregistrer le Paiement'}
@@ -5232,6 +5250,9 @@ const Dashboard: React.FC = () => {
                                 Enregistré par : {p.createdByUser ? `${p.createdByUser.firstName} ${p.createdByUser.lastName}` : 'Système'}
                                 {isValide && p.validatedByUser && ` · Confirmé par : ${p.validatedByUser.firstName} ${p.validatedByUser.lastName}`}
                               </span>
+                              <span style={{ fontSize: '9.5px', color: 'var(--text-muted)' }}>
+                                {p.type === 'MAIN_DOEUVRE' ? "👷 Main d'œuvre" : '🛒 Achats'}
+                              </span>
                             </div>
                             <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'flex-end' }}>
                               <strong style={{ color: isValide ? 'var(--status-success)' : 'var(--status-pending)', fontSize: '12.5px' }}>
@@ -5301,7 +5322,20 @@ const Dashboard: React.FC = () => {
                         required
                       />
                     </div>
-                    
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <label style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-muted)' }}>Type</label>
+                      <select
+                        className="form-input"
+                        value={manualPayType}
+                        onChange={(e) => setManualPayType(e.target.value)}
+                        style={{ height: '38px', padding: '6px 12px', fontSize: '13px' }}
+                        required
+                      >
+                        <option value="ACHATS">Achats</option>
+                        <option value="MAIN_DOEUVRE">Main d'œuvre</option>
+                      </select>
+                    </div>
+
                     <button
                       type="submit"
                       className="btn btn-primary"

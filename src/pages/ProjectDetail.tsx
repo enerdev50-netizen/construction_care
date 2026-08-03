@@ -77,6 +77,12 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
   const [moveQty, setMoveQty] = useState('');
   const [moveReason, setMoveReason] = useState('');
 
+  const [showAddMaterialModal, setShowAddMaterialModal] = useState(false);
+  const [newMatName, setNewMatName] = useState('');
+  const [newMatUnit, setNewMatUnit] = useState('sacs');
+  const [newMatMinAlert, setNewMatMinAlert] = useState('5');
+  const [newMatInitialStock, setNewMatInitialStock] = useState('0');
+
   // État Impression
   const [printDoc, setPrintDoc] = useState<any>(null);
   const [showPrintModal, setShowPrintModal] = useState(false);
@@ -89,6 +95,13 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
   const [expBeneficiaryId, setExpBeneficiaryId] = useState('');
   const [docFileBase64, setDocFileBase64] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Cahier des charges (journal quotidien de chantier)
+  const [siteLogDate, setSiteLogDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [siteLogEntry, setSiteLogEntry] = useState<any>(null);
+  const [siteLogLoading, setSiteLogLoading] = useState(false);
+  const [newSiteLogItem, setNewSiteLogItem] = useState('');
+  const [siteLogSaving, setSiteLogSaving] = useState(false);
 
   useEffect(() => {
     fetchProjectDetails();
@@ -111,7 +124,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
 
   const fetchMaterials = async () => {
     try {
-      const response = await api.get('/materials');
+      const response = await api.get('/materials', { params: { projectId } });
       setMaterials(response.data);
     } catch (err) {
       console.error('Erreur chargement matériaux', err);
@@ -129,6 +142,57 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Cahier des charges : charger l'entrée de la date sélectionnée
+  const fetchSiteLogEntry = async (date: string) => {
+    setSiteLogLoading(true);
+    try {
+      const response = await api.get('/sitelog', { params: { projectId, date } });
+      setSiteLogEntry(response.data);
+    } catch (err) {
+      console.error('Erreur lors du chargement du cahier des charges', err);
+    } finally {
+      setSiteLogLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (projectId) {
+      fetchSiteLogEntry(siteLogDate);
+    }
+  }, [projectId, siteLogDate]);
+
+  const saveSiteLogItems = async (items: { label: string; done: boolean }[]) => {
+    setSiteLogSaving(true);
+    try {
+      const response = await api.post('/sitelog', { projectId, date: siteLogDate, items });
+      setSiteLogEntry(response.data);
+    } catch (err) {
+      console.error("Erreur lors de l'enregistrement du cahier des charges", err);
+    } finally {
+      setSiteLogSaving(false);
+    }
+  };
+
+  const addSiteLogItem = async () => {
+    const label = newSiteLogItem.trim();
+    if (!label) return;
+    const items = [...(siteLogEntry?.items || []), { label, done: false }];
+    setNewSiteLogItem('');
+    await saveSiteLogItems(items);
+  };
+
+  const toggleSiteLogItem = async (index: number) => {
+    const items = (siteLogEntry?.items || []).map((it: any, i: number) =>
+      i === index ? { ...it, done: !it.done } : it
+    );
+    await saveSiteLogItems(items);
+  };
+
+  const removeSiteLogItem = async (index: number) => {
+    const items = (siteLogEntry?.items || []).filter((_: any, i: number) => i !== index);
+    await saveSiteLogItems(items);
   };
 
   // Basculer le statut d'une tâche
@@ -375,6 +439,32 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
     }
   };
 
+  // Soumission Matériau du chantier
+  const handleAddMaterialSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setSubmitting(true);
+    try {
+      await api.post('/materials', {
+        name: newMatName,
+        projectId,
+        unit: newMatUnit,
+        minStockAlert: parseFloat(newMatMinAlert) || 5,
+        initialStock: parseFloat(newMatInitialStock) || 0,
+      });
+      setShowAddMaterialModal(false);
+      setNewMatName('');
+      setNewMatUnit('sacs');
+      setNewMatMinAlert('5');
+      setNewMatInitialStock('0');
+      fetchMaterials();
+    } catch (err: any) {
+      setErrorMsg(err.response?.data?.error || "Erreur lors de l'ajout du matériau.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   // Soumission Mouvement Stock
   const handleAddMovementSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -487,10 +577,12 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
   const totalPaid = project.documents?.filter((d: any) => d.type === 'FACTURE').reduce((sum: number, d: any) => sum + (d.paidAmount || 0), 0) || 0;
   const totalDeclaredPending = project.documents?.filter((d: any) => d.type === 'FACTURE' && d.status === 'PAYE_CLIENT').reduce((sum: number, d: any) => sum + (d.declaredPaidAmount || 0), 0) || 0;
   const totalPendingInvoice = totalInvoiced - totalPaid;
-  const projectCashBalance = totalPaid - totalSpent; // Trésorerie courante
 
-  // Gain réel à ce stade (Recettes encaissées - Dépenses totales du chantier)
-  const netEarnings = totalPaid - totalSpent;
+  // Trésorerie disponible / Reste à payer / Avance globale : calculés côté API
+  // (somme des Paiements VALIDE du chantier), seule source de vérité partagée avec Dashboard.tsx.
+  const projectCashBalance = project.tresorerieDisponible || 0;
+  const resteAPayer = project.resteAPayer || 0;
+  const avanceGlobale = project.avanceGlobale || 0;
 
   return (
     <div className="project-detail-content-wrapper">
@@ -593,29 +685,48 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
                   {projectCashBalance.toLocaleString()} FCFA
                 </h2>
                 <span style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px', display: 'block' }}>
-                  Reçu client: {totalPaid.toLocaleString()} F | Dépenses: {totalSpent.toLocaleString()} F
+                  Somme des paiements reçus validés
                 </span>
               </div>
             </div>
 
-            {/* Bénéfice / Gain Réel */}
+            {/* Reste à Payer */}
             <div className="metric-card glass-panel">
               <div className="metric-card-header">
                 <div className="metric-icon-wrapper blue">
                   <DollarSign size={20} />
                 </div>
-                <span className={`badge badge-${netEarnings >= 0 ? 'success' : 'danger'}`}>
-                  {netEarnings >= 0 ? 'Bénéfice' : 'Déficit'}
+                <span className={`badge badge-${resteAPayer > 0 ? 'danger' : 'success'}`}>
+                  {resteAPayer > 0 ? 'En cours' : 'Soldé'}
                 </span>
               </div>
               <div className="metric-card-body">
-                <span className="metric-label">GAIN RÉEL (BÉNÉFICE)</span>
-                <h2 className="metric-value" style={{ color: netEarnings >= 0 ? 'var(--status-success)' : 'var(--status-danger)' }}>
-                  {netEarnings.toLocaleString()} FCFA
+                <span className="metric-label">RESTE À PAYER</span>
+                <h2 className="metric-value" style={{ color: resteAPayer > 0 ? 'var(--status-danger)' : 'var(--status-success)' }}>
+                  {resteAPayer.toLocaleString()} FCFA
                 </h2>
                 <span style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px', display: 'block' }}>
-                  Calculé sur l'argent encaissé
+                  Budget {(project.budget || 0).toLocaleString()} F − Trésorerie disponible
                 </span>
+              </div>
+            </div>
+
+            {/* Avance globale (paiements) */}
+            <div className="metric-card glass-panel">
+              <div className="metric-card-header">
+                <div className="metric-icon-wrapper green">
+                  <Wallet size={20} />
+                </div>
+                <span className="metric-tag blue">Budget couvert</span>
+              </div>
+              <div className="metric-card-body">
+                <span className="metric-label">AVANCE GLOBALE (PAIEMENTS)</span>
+                <h2 className="metric-value">{avanceGlobale}%</h2>
+                <div className="metric-progress-container">
+                  <div className="metric-progress-bg">
+                    <div className="metric-progress-fill" style={{ width: `${avanceGlobale}%` }} />
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -628,7 +739,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
                 <span className="metric-tag blue">{completedTasksCount} / {totalTasksCount} tâches</span>
               </div>
               <div className="metric-card-body">
-                <span className="metric-label">AVANCEMENT GLOBAL</span>
+                <span className="metric-label">AVANCEMENT DES TÂCHES</span>
                 <h2 className="metric-value">{progressPercent}%</h2>
                 <div className="metric-progress-container">
                   <div className="metric-progress-bg">
@@ -743,6 +854,82 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
          ========================================================================== */}
       {activeSubTab === 'tasks' && (
         <div className="tasks-list animate-fade-in">
+          {/* Cahier des charges : journal quotidien daté du chantier */}
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--steel-border)', borderRadius: '12px', padding: '20px', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
+              <div>
+                <h3 style={{ fontSize: '16px', fontFamily: 'var(--font-title)', fontWeight: '800' }}>Cahier des Charges</h3>
+                <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
+                  Choisissez une date et enregistrez ce qui a été fait ce jour-là sur le chantier.
+                </p>
+              </div>
+              <div style={{ minWidth: '180px' }}>
+                <DatePicker value={siteLogDate} onChange={setSiteLogDate} />
+              </div>
+            </div>
+
+            {siteLogLoading ? (
+              <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>Chargement...</p>
+            ) : (
+              <>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '14px' }}>
+                  {(siteLogEntry?.items || []).length === 0 && (
+                    <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-secondary)', background: 'var(--bg-primary)', borderRadius: '8px', border: '1px solid var(--steel-border)' }}>
+                      Aucun élément enregistré pour cette date.
+                    </div>
+                  )}
+                  {(siteLogEntry?.items || []).map((item: any, index: number) => (
+                    <div key={index} className="task-row">
+                      <div className="task-info">
+                        <div
+                          className={`task-checkbox-wrapper ${item.done ? 'completed' : ''}`}
+                          onClick={() => toggleSiteLogItem(index)}
+                        >
+                          {item.done ? (
+                            <CheckSquare size={22} style={{ fill: 'var(--status-success-soft)' }} />
+                          ) : (
+                            <Square size={22} />
+                          )}
+                        </div>
+                        <span className={`task-name ${item.done ? 'completed' : ''}`}>{item.label}</span>
+                      </div>
+                      {(userRole === 'COMPANY_ADMIN' || userRole === 'TEAM_LEADER') && (
+                        <button
+                          className="btn btn-secondary"
+                          style={{ padding: '6px', minWidth: 'auto', background: 'transparent', border: 'none', color: 'var(--status-danger)' }}
+                          onClick={() => removeSiteLogItem(index)}
+                        >
+                          <Trash size={16} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {(userRole === 'COMPANY_ADMIN' || userRole === 'TEAM_LEADER') && (
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Ex: Coulage dalle RDC terminé"
+                      value={newSiteLogItem}
+                      onChange={(e) => setNewSiteLogItem(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSiteLogItem(); } }}
+                    />
+                    <button className="btn btn-primary" onClick={addSiteLogItem} disabled={siteLogSaving || !newSiteLogItem.trim()}>
+                      <Plus size={16} /> Ajouter
+                    </button>
+                  </div>
+                )}
+                {siteLogEntry?.createdBy && (
+                  <p style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '10px' }}>
+                    Dernière mise à jour par {siteLogEntry.createdBy.firstName} {siteLogEntry.createdBy.lastName}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
             <div>
               <h3 style={{ fontSize: '16px', fontFamily: 'var(--font-title)', fontWeight: '800' }}>MVP Checklist de Construction</h3>
@@ -867,14 +1054,14 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
                 </span>
               </div>
 
-              {/* Gain Net */}
-              <div style={{ background: 'var(--bg-primary)', border: '1px solid var(--steel-border)', padding: '16px', borderRadius: '8px', borderLeft: '4px solid ' + (netEarnings >= 0 ? 'var(--status-success)' : 'var(--status-danger)') }}>
-                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase' }}>Bénéfice (Mon Gain)</span>
-                <h4 style={{ fontSize: '18px', fontWeight: '800', marginTop: '6px', color: netEarnings >= 0 ? 'var(--status-success)' : 'var(--status-danger)' }}>
-                  {netEarnings.toLocaleString()} FCFA
+              {/* Reste à Payer */}
+              <div style={{ background: 'var(--bg-primary)', border: '1px solid var(--steel-border)', padding: '16px', borderRadius: '8px', borderLeft: '4px solid ' + (resteAPayer > 0 ? 'var(--status-danger)' : 'var(--status-success)') }}>
+                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase' }}>Reste à Payer</span>
+                <h4 style={{ fontSize: '18px', fontWeight: '800', marginTop: '6px', color: resteAPayer > 0 ? 'var(--status-danger)' : 'var(--status-success)' }}>
+                  {resteAPayer.toLocaleString()} FCFA
                 </h4>
                 <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
-                  Gain réel actuel ({netEarnings >= 0 ? 'Bénéficiaire' : 'Déficitaire'})
+                  Budget − Trésorerie disponible ({resteAPayer > 0 ? 'En cours' : 'Soldé'})
                 </span>
               </div>
             </div>
@@ -1160,7 +1347,46 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
          ONGLET 3 : MATÉRIAUX / APPROVISIONNEMENT
          ========================================================================== */}
       {activeSubTab === 'materials' && (
-        <DataTable
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* Matériaux propres à ce chantier */}
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--steel-border)', borderRadius: '12px', padding: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+              <div>
+                <h3 style={{ fontSize: '16px', fontFamily: 'var(--font-title)', fontWeight: '800' }}>Matériaux du Chantier</h3>
+                <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
+                  Ce chantier gère ses propres matériaux, séparés des autres chantiers.
+                </p>
+              </div>
+              {(userRole === 'COMPANY_ADMIN' || userRole === 'TEAM_LEADER') && (
+                <button className="btn btn-primary" onClick={() => setShowAddMaterialModal(true)}>
+                  <Plus size={16} /> Ajouter un Matériau
+                </button>
+              )}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+              {materials.map((m: any) => (
+                <div key={m.id} style={{ background: 'var(--bg-primary)', border: '1px solid var(--steel-border)', borderRadius: '8px', padding: '12px' }}>
+                  <span style={{ fontSize: '12.5px', fontWeight: '700', display: 'block' }}>{m.name}</span>
+                  <span style={{ fontSize: '16px', fontWeight: '850', color: m.isLowStock ? 'var(--status-danger)' : 'var(--status-success)' }}>
+                    {m.stock} {m.unit}
+                  </span>
+                  {m.isLowStock && (
+                    <span style={{ fontSize: '10px', color: 'var(--status-danger)', display: 'block', marginTop: '2px' }}>
+                      ⚠ Stock faible (seuil : {m.minStockAlert})
+                    </span>
+                  )}
+                </div>
+              ))}
+              {materials.length === 0 && (
+                <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '20px', color: 'var(--text-secondary)' }}>
+                  Aucun matériau enregistré pour ce chantier.
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DataTable
           title="Mouvements de stock affectés à ce chantier"
           subtitle="Sorties de stock de ciment, sable, etc. utilisées sur le site"
           columns={[
@@ -1173,9 +1399,9 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
           ]}
           data={project.movements}
           actions={
-            userRole === 'COMPANY_ADMIN' && (
+            (userRole === 'COMPANY_ADMIN' || userRole === 'TEAM_LEADER') && (
               <button className="btn btn-primary" onClick={() => setShowAddMovementModal(true)}>
-                <Plus size={16} /> Enregistrer Sortie Stock
+                <Plus size={16} /> Enregistrer un Mouvement
               </button>
             )
           }
@@ -1195,7 +1421,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
                 {new Date(item.date).toLocaleDateString()}
               </td>
               <td>
-                {userRole === 'COMPANY_ADMIN' && (
+                {(userRole === 'COMPANY_ADMIN' || userRole === 'TEAM_LEADER') && (
                   <button
                     className="btn btn-danger"
                     style={{ padding: '6px 10px', fontSize: '11px' }}
@@ -1208,6 +1434,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
             </tr>
           )}
         />
+        </div>
       )}
 
       {/* ==========================================================================
@@ -1615,8 +1842,8 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
                     onChange={(e) => setMoveType(e.target.value)}
                     required
                   >
-                    <option value="SORTIE">Livrer du dépôt vers ce chantier (Diminue le stock global)</option>
-                    <option value="ENTREE">Retourner le surplus du chantier au dépôt (Augmente le stock global)</option>
+                    <option value="SORTIE">Sortie — utilisé sur le chantier (diminue le stock)</option>
+                    <option value="ENTREE">Entrée — livraison/achat reçu sur le chantier (augmente le stock)</option>
                   </select>
                 </div>
                 <div className="form-group">
@@ -1646,6 +1873,71 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
 
               <button type="submit" className="btn btn-primary login-btn" disabled={submitting}>
                 {submitting ? 'Validation...' : 'Valider le mouvement'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 5b : Ajouter un Matériau du chantier */}
+      {showAddMaterialModal && (
+        <div className="modal-overlay">
+          <div className="modal-content glass-panel">
+            <div className="modal-header">
+              <span className="modal-title">Ajouter un Matériau</span>
+              <button className="modal-close-btn" onClick={() => setShowAddMaterialModal(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            {errorMsg && <div className="login-error">{errorMsg}</div>}
+            <form onSubmit={handleAddMaterialSubmit} className="login-form">
+              <div className="form-group">
+                <label>Nom du matériau</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Ex: Ciment"
+                  value={newMatName}
+                  onChange={(e) => setNewMatName(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Unité</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="sacs, tonnes, m3..."
+                    value={newMatUnit}
+                    onChange={(e) => setNewMatUnit(e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Stock initial</label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    className="form-input"
+                    value={newMatInitialStock}
+                    onChange={(e) => setNewMatInitialStock(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Seuil d'alerte de rupture</label>
+                <input
+                  type="number"
+                  step="any"
+                  min="0"
+                  className="form-input"
+                  value={newMatMinAlert}
+                  onChange={(e) => setNewMatMinAlert(e.target.value)}
+                />
+              </div>
+              <button type="submit" className="btn btn-primary login-btn" disabled={submitting}>
+                {submitting ? 'Enregistrement...' : 'Ajouter le matériau'}
               </button>
             </form>
           </div>
